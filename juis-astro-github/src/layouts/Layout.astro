@@ -1,0 +1,83 @@
+---
+import "../styles/global.css";
+interface Props { title?: string; description?: string; }
+const { title = "城北情報大学", description = "城北情報大学公式サイト" } = Astro.props;
+const path = Astro.url.pathname;
+const nav = [
+  { href: "/", label: "ホーム" },
+  { href: "/academics/", label: "学部・大学院" },
+  { href: "/about/", label: "大学紹介" },
+  { href: "/admissions/", label: "入試情報" },
+];
+---
+<!doctype html>
+<html lang="ja" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content={description} />
+  <title>{title} | Johoku University of Information Studies</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;600;900&display=swap" rel="stylesheet" />
+  <script is:inline>
+    tailwind.config={theme:{extend:{fontFamily:{sans:['Noto Sans JP','sans-serif'],serif:['Noto Serif JP','serif']},colors:{primary:'#1e3a8a',secondary:'#3b82f6',dark:'#0f172a',light:'#f8fafc'}}}}
+  </script>
+</head>
+<body class="font-sans text-gray-800 bg-light antialiased flex flex-col min-h-screen">
+<header class="fixed w-full z-50 bg-white/95 backdrop-blur shadow-sm border-b border-gray-200">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div class="flex justify-between items-center h-20">
+    <a href="/" class="flex-shrink-0 flex items-center gap-3">
+      <div class="w-10 h-10 rounded bg-primary flex items-center justify-center text-white font-serif font-bold text-xl">J</div>
+      <div><h1 class="font-serif font-bold text-xl tracking-wider text-primary leading-tight">城北情報大学</h1><p class="text-[10px] text-gray-500 tracking-widest uppercase">Johoku University of Information Studies</p></div>
+    </a>
+    <nav class="hidden md:flex space-x-8 h-full items-center">
+      {nav.map(item => <a href={item.href} class:list={["nav-link h-full px-1 flex items-center text-gray-600 hover:text-primary transition-colors text-sm font-medium", path===item.href && "active-nav"]}>{item.label}</a>)}
+    </nav>
+    <button id="mobile-menu-btn" class="md:hidden text-gray-600 hover:text-primary" aria-label="メニューを開く" aria-expanded="false"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg></button>
+  </div></div>
+  <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-gray-100"><div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">{nav.map(item => <a href={item.href} class="block px-3 py-2 text-base font-medium text-gray-800 hover:bg-gray-50 hover:text-primary">{item.label}</a>)}</div></div>
+</header>
+<main class="flex-grow pt-20"><slot /></main>
+<footer class="bg-dark text-gray-400 py-12 border-t border-gray-800">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8 border-b border-gray-800 pb-8">
+<!-- Brand -->
+<div class="flex flex-col">
+<div class="flex items-center gap-2 mb-4">
+<div class="w-8 h-8 rounded bg-white flex items-center justify-center text-primary font-serif font-bold text-lg">J</div>
+<h2 class="font-serif font-bold text-xl text-white">城北情報大学</h2>
+</div>
+<p class="text-xs mb-2">〒170-0000 東京都豊島区城北台1-2-3</p>
+<p class="text-xs mb-4">Johoku Information University</p>
+</div>
+<!-- Links 1 -->
+<div class="flex flex-col space-y-2 text-sm">
+<a class="hover:text-white transition" href="/academics/">学部・大学院</a>
+<a class="hover:text-white transition" href="/about/">大学紹介</a>
+<a class="hover:text-white transition" href="#">教員紹介</a>
+<a class="hover:text-white transition" href="#">キャンパスライフ</a>
+</div>
+<!-- Links 2 -->
+<div class="flex flex-col space-y-2 text-sm">
+<a class="hover:text-white transition" href="/admissions/">入試情報</a>
+<a class="hover:text-white transition" href="#">就職・キャリア支援</a>
+<a class="hover:text-white transition" href="#">図書館・施設案内</a>
+<a class="hover:text-white transition" href="#">お問い合わせ</a>
+</div>
+</div>
+<div class="flex flex-col md:flex-row justify-between items-center text-xs">
+<div class="flex space-x-4 mb-4 md:mb-0">
+<a class="hover:text-white transition" href="#">サイトポリシー</a>
+<a class="hover:text-white transition" href="#">プライバシーポリシー</a>
+</div>
+<p>© 2026 Johoku Information University. All rights reserved.</p>
+</div>
+</div>
+</footer>
+<script>
+ const button=document.getElementById('mobile-menu-btn'); const menu=document.getElementById('mobile-menu');
+ button?.addEventListener('click',()=>{const hidden=menu?.classList.toggle('hidden');button.setAttribute('aria-expanded',String(!hidden));});
+</script>
+</body></html>

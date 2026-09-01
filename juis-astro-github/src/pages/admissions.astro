@@ -1,0 +1,50 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+<Layout title="入試情報" description="城北情報大学の入試情報をご案内します。">
+<section class="bg-light py-16">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="text-center mb-16">
+<h2 class="text-4xl font-serif font-bold text-primary mb-4">入試情報</h2>
+<p class="text-gray-600">城北情報大学で、あなたの可能性を切り拓きませんか。</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+<!-- Open Campus -->
+<div class="bg-white p-8 rounded-xl shadow-md border-t-4 border-primary">
+<h3 class="text-2xl font-bold text-gray-900 mb-4">オープンキャンパス</h3>
+<p class="text-gray-600 text-sm mb-6">各学部の模擬授業や、最新設備を備えたキャンパスツアーを実施しています。教員や在学生と直接話せる機会もご用意しております。</p>
+<ul class="space-y-3 mb-8 text-sm">
+<li class="flex items-center"><svg class="w-5 h-5 text-secondary mr-2" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg> 夏季日程：2026年8月22日(土)・23日(日)</li>
+<li class="flex items-center"><svg class="w-5 h-5 text-secondary mr-2" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg> 秋季日程：2026年10月17日(土)</li>
+</ul>
+<button class="w-full bg-primary hover:bg-blue-800 text-white font-bold py-3 px-4 rounded transition duration-300">
+                            事前予約はこちら
+                        </button>
+</div>
+<!-- Exam Guidelines -->
+<div class="bg-white p-8 rounded-xl shadow-md border-t-4 border-secondary">
+<h3 class="text-2xl font-bold text-gray-900 mb-4">入試要項・出願案内</h3>
+<p class="text-gray-600 text-sm mb-6">総合型選抜、学校推薦型選抜、一般選抜など、多様な入学試験制度を設けています。詳細は最新の入試要項をご確認ください。</p>
+<div class="space-y-4 mb-8">
+<a class="block p-3 border border-gray-200 rounded hover:border-primary hover:bg-blue-50 transition flex justify-between items-center text-sm font-medium text-gray-700" href="#">
+<span>2027年度 入学者選抜要項 (PDF)</span>
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</a>
+<a class="block p-3 border border-gray-200 rounded hover:border-primary hover:bg-blue-50 transition flex justify-between items-center text-sm font-medium text-gray-700" href="#">
+<span>過去問題（直近3年分）</span>
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</a>
+</div>
+</div>
+</div>
+<!-- Call to Action -->
+<div class="bg-dark rounded-xl p-10 text-center text-white">
+<h3 class="text-2xl font-serif font-bold mb-4">大学案内パンフレットのご請求</h3>
+<p class="text-gray-300 mb-8 max-w-2xl mx-auto text-sm">城北情報大学の理念、各学部の詳細なカリキュラム、キャンパスライフなどを網羅した最新のパンフレットを無料でお届けします。</p>
+<button class="bg-secondary hover:bg-blue-400 text-white font-bold py-3 px-8 rounded-full shadow-lg transition duration-300 transform hover:scale-105">
+                        資料請求（無料）
+                    </button>
+</div>
+</div>
+</section>
+</Layout>
