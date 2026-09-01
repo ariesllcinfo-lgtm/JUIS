@@ -1,46 +1,129 @@
 ---
 import Layout from "../layouts/Layout.astro";
+
+const pillars = [
+  {
+    key: "Joyful",
+    title: "1. Joyful（楽しむ・熱狂をデザインする）",
+    policy: "「学ばされる」のではなく、自らの好奇心と熱狂から学ぶ環境を提供する。",
+    items: [
+      {
+        name: "パッション・ドリブン・カリキュラム",
+        desc: "1年次から必修科目を最小限に絞り、自分が心から面白いと思えるテーマでプロダクト開発や研究を行う「熱狂プロジェクト」を単位認定。",
+      },
+      {
+        name: "ゲーミフィケーション学習",
+        desc: "プログラミングやデータサイエンスの基礎を、学生同士が競い合い、協力しながらクリアしていくゲーム形式の独自プラットフォームで提供。",
+      },
+    ],
+  },
+  {
+    key: "Open",
+    title: "2. Open（開かれた・境界線のないキャンパス）",
+    policy: "学部・地域・産学の壁を壊し、あらゆるリソースにアクセスできるオープンな場を創る。",
+    items: [
+      {
+        name: "ボーダーレス・ラボ",
+        desc: "企業、スタートアップ、地域住民が自由にキャンパスに出入りし、学生とともにプロジェクトを進める「共創型コワーキングスペース」の設置。",
+      },
+      {
+        name: "グローバル・ハイブリッドパス",
+        desc: "世界中の提携大学やIT企業のオンライン講義を、本学の単位として自由に組み込める制度。",
+      },
+    ],
+  },
+  {
+    key: "Knowledge",
+    title: "3. Knowledge（知識・実践的な最先端の知）",
+    policy: "「社会の枠をはみ出す」ための強力な武器として、本物のITスキルと教養を授ける。",
+    items: [
+      {
+        name: "社会実装型PBL（課題解決型学習）",
+        desc: "仮想の課題ではなく、協賛企業が実際に直面しているリアルなビジネス課題に対し、データ分析やAIを用いて解決策を提示する実践授業。",
+      },
+      {
+        name: "ハッカーズ・ブートキャンプ",
+        desc: "最新のAIツール、ブロックチェーン、サイバーセキュリティなど、技術トレンドの最前線を短期集中でマスターする特別プログラム。",
+      },
+    ],
+  },
+  {
+    key: "Explore",
+    title: "4. Explore（探求・失敗を恐れない挑戦）",
+    policy: "正解のない未知の領域へ踏み出す勇気を称賛し、挑戦のハードルを下げる。",
+    items: [
+      {
+        name: "「Out of the Box」ファンド",
+        desc: "学生の常識外れなアイデア（＝社会の枠をはみ出した企画）に対して、大学が返済不要のシード資金（活動費）を提供する制度。",
+      },
+      {
+        name: "Failcon（失敗共有カンファレンス）",
+        desc: "成功体験だけでなく、「どれだけ盛大に失敗し、そこから何を学んだか」をプレゼンし、最も美しい失敗をした学生を表彰するアワードの開催。",
+      },
+    ],
+  },
+];
+
+// 沿革は仮のプレースホルダーです。実際の年表が決まったら差し替えてください。
+const history = [
+  { date: "20XX年4月", text: "城北情報大学 開学（プレースホルダー：実際の年表に差し替えてください）" },
+  { date: "20XX年4月", text: "システム農学部 開設" },
+  { date: "20XX年4月", text: "情報法経学部 開設" },
+  { date: "20XX年X月", text: "ボーダーレス・ラボ（共創型コワーキングスペース）開設" },
+];
 ---
-<Layout title="大学紹介" description="城北情報大学の理念と沿革をご紹介します。">
-<section class="py-16">
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-<div class="text-center mb-16">
-<h2 class="text-4xl font-serif font-bold text-primary mb-4">大学紹介</h2>
-<p class="text-gray-600">実学と革新の歩み。城北情報大学の歴史をご紹介します。</p>
+
+<Layout title="大学紹介" description="学長メッセージ・教育方針・沿革をご紹介します。">
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+
+  <!-- 学長の言葉 -->
+  <section class="mb-24">
+    <h1 class="text-3xl font-serif font-bold text-primary mb-10 border-b pb-4">学長の言葉</h1>
+    <p class="text-2xl md:text-3xl font-serif font-bold text-gray-900 mb-10 leading-relaxed">「真面目に、世界と遊ぼう。」</p>
+    <div class="space-y-6 text-gray-700 leading-loose">
+      <p>これまでの社会には、誰もが疑わない「正解の枠」がありました。決められたレールを走り、既存のルールに適応することが優秀さとされてきました。しかし、テクノロジーが指数関数的に進化する現代において、その「枠」はもはや私たちを守るものではなく、可能性を制限する檻になりつつあります。</p>
+      <p>城北情報大学は、皆さんに問いかけます。「その枠に収まったままで、本当に世界を変えられるのか？」と。</p>
+      <p>本学が掲げるスローガンは「J.O.K.E」です。一見、ふざけているように思われるかもしれません。しかし、これこそが私たちが考える最高の知性です。</p>
+      <p>常識を疑い、心からワクワクするプロセスを楽しむこと（Joyful）。あらゆる価値観や多様な人々と境界線なく交わること（Open）。社会をハックするための確かなテクノロジーと知性を身につけること（Knowledge）。そして、失敗を恐れず未踏の領域へと踏み出すこと（Explore）。</p>
+      <p>偉大なイノベーションは、いつだって最初は「まるで冗談（JOKE）のようなアイデア」から生まれました。社会の枠をはみ出し、あなたの無限の可能性をここで育んでください。私たちと一緒に、世界をあっと言わせる「最高のJOKE」を創り上げましょう。</p>
+    </div>
+  </section>
+
+  <!-- 教育方針 -->
+  <section class="mb-24">
+    <h2 class="text-3xl font-serif font-bold text-primary mb-4 border-b pb-4">教育方針と取組み</h2>
+    <p class="text-gray-600 mb-12 leading-loose">学長メッセージの理念を、実際のカリキュラムや大学の制度として落とし込んだ教育方針です。</p>
+    <div class="space-y-14">
+      {pillars.map((pillar) => (
+        <div class="border-l-4 border-secondary pl-6">
+          <h3 class="text-xl font-serif font-bold text-primary mb-3">{pillar.title}</h3>
+          <p class="font-bold text-gray-900 mb-4">教育方針： {pillar.policy}</p>
+          <p class="text-sm text-gray-500 mb-2">具体的な取組み：</p>
+          <ul class="space-y-3">
+            {pillar.items.map((item) => (
+              <li class="text-gray-700 leading-relaxed">
+                <span class="font-bold text-gray-900">{item.name}：</span> {item.desc}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <!-- 沿革 -->
+  <section>
+    <h2 class="text-3xl font-serif font-bold text-primary mb-10 border-b pb-4">沿革</h2>
+    <div class="relative border-l-2 border-gray-200 ml-2 pl-10 space-y-10">
+      {history.map((h) => (
+        <div class="timeline-item relative">
+          <p class="text-sm text-secondary font-bold">{h.date}</p>
+          <p class="text-gray-800 mt-1">{h.text}</p>
+        </div>
+      ))}
+    </div>
+    <p class="text-xs text-gray-400 mt-8">※ 沿革は仮の内容です。正式な年表に差し替えてください。</p>
+  </section>
+
 </div>
-<h3 class="text-2xl font-serif font-bold text-gray-800 mb-10 text-center border-b pb-4">沿革</h3>
-<div class="relative border-l-2 border-gray-200 ml-6 md:ml-10">
-<div class="mb-12 relative pl-10 timeline-item">
-<div class="text-primary font-bold text-xl mb-1">1985年</div>
-<h4 class="font-bold text-gray-900 text-lg mb-2">城北情報処理専門学校 開校</h4>
-<p class="text-gray-600 text-sm leading-relaxed">情報化の黎明期において、高度な技術を持つプログラマーおよびシステムエンジニアの育成を目的として設立。本学の理念的起源となる。</p>
-</div>
-<div class="mb-12 relative pl-10 timeline-item">
-<div class="text-primary font-bold text-xl mb-1">1995年</div>
-<h4 class="font-bold text-gray-900 text-lg mb-2">4年制大学「城北情報大学」開学</h4>
-<p class="text-gray-600 text-sm leading-relaxed">インターネット社会の本格的な到来を見据え、高等教育機関として改組開学。情報科学、法学、経済学の学際的領域を教育する「情報法経学部」を設置。</p>
-</div>
-<div class="mb-12 relative pl-10 timeline-item">
-<div class="text-primary font-bold text-xl mb-1">2004年</div>
-<h4 class="font-bold text-gray-900 text-lg mb-2">「社会福祉学部」を新設</h4>
-<p class="text-gray-600 text-sm leading-relaxed">情報技術の発展に伴う社会構造の変化に対応するため、ITを活用した先進的な福祉人材の育成を目的とする学部を増設。</p>
-</div>
-<div class="mb-12 relative pl-10 timeline-item">
-<div class="text-primary font-bold text-xl mb-1">2015年</div>
-<h4 class="font-bold text-gray-900 text-lg mb-2">「システム農学部」を新設</h4>
-<p class="text-gray-600 text-sm leading-relaxed">地球規模の食糧問題解決と、一次産業のIT化（スマート農業）を推進する理系学部を設立。実学重視の教育をさらに拡大。</p>
-</div>
-<div class="mb-12 relative pl-10 timeline-item">
-<div class="text-primary font-bold text-xl mb-1">2023年</div>
-<h4 class="font-bold text-gray-900 text-lg mb-2">「コミュニケーション保障学部」を開設</h4>
-<p class="text-gray-600 text-sm leading-relaxed">多様化する社会における情報格差や孤立を防ぎ、誰もが円滑に対話できるセーフティネットの構築を研究する日本初の学部として開設。</p>
-</div>
-<div class="mb-8 relative pl-10 timeline-item">
-<div class="text-primary font-bold text-xl mb-1">2025年</div>
-<h4 class="font-bold text-gray-900 text-lg mb-2">グローバル・スローガン『J.O.K.E』制定</h4>
-<p class="text-gray-600 text-sm leading-relaxed">大学創立30周年を記念し、国際社会に向けて開かれた教育研究機関であることを示す新たなスローガンと大学モットーを制定。</p>
-</div>
-</div>
-</div>
-</section>
 </Layout>
