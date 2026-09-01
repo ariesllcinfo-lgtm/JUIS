@@ -14,3 +14,16 @@ html { background: #f8fafc; }
 body { margin: 0; }
 .timeline-item::before { content: ""; position: absolute; left: -33px; top: 6px; width: 16px; height: 16px; border-radius: 50%; background-color: #1e3a8a; border: 3px solid #fff; box-shadow: 0 0 0 2px #e2e8f0; }
 .nav-link.active-nav { color: #1e3a8a; font-weight: 700; border-bottom: 2px solid #1e3a8a; }
+
+/* News記事本文（microCMSのリッチエディタから流し込まれるHTML用） */
+.rich-content h2 { font-family: "Noto Serif JP", serif; font-weight: 700; font-size: 1.5rem; color: #1e3a8a; margin-top: 2.5rem; margin-bottom: 1rem; }
+.rich-content h3 { font-family: "Noto Serif JP", serif; font-weight: 700; font-size: 1.25rem; color: #1e3a8a; margin-top: 2rem; margin-bottom: 0.75rem; }
+.rich-content p { margin-bottom: 1.25rem; line-height: 1.9; color: #1f2937; }
+.rich-content ul, .rich-content ol { margin: 0 0 1.25rem 1.5rem; }
+.rich-content ul { list-style: disc; }
+.rich-content ol { list-style: decimal; }
+.rich-content li { margin-bottom: 0.5rem; line-height: 1.8; }
+.rich-content a { color: #3b82f6; text-decoration: underline; }
+.rich-content strong { font-weight: 700; }
+.rich-content figure { margin: 1.75rem 0; }
+.rich-content img { border-radius: 0.5rem; width: 100%; height: auto; }
