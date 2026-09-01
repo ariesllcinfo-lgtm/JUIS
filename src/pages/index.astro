@@ -1,20 +1,39 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { createClient } from "microcms-js-sdk";
+
+// microCMSクライアントの初期化
+const client = createClient({
+  serviceDomain: import.meta.env.MICROCMS_SERVICE_DOMAIN,
+  apiKey: import.meta.env.MICROCMS_API_KEY,
+});
+
+// トップページ設定APIからデータを取得
+let heroData;
+try {
+  heroData = await client.getObject({
+    endpoint: "main",
+  });
+} catch (error) {
+  console.error("microCMSのデータ取得に失敗しました", error);
+}
+
+// 画像のURLを取得 (フォールバックとしてプレースホルダーを設定)
+const heroImageUrl = heroData?.main_image?.url || "https://placehold.co/1920x1080/1e3a8a/ffffff?text=Academic+Excellence";
 ---
+
 <Layout title="城北情報大学" description="AI時代の学問と社会を再構築する城北情報大学の公式サイトです。">
 <section class="">
 <!-- Hero Banner -->
 <div class="relative bg-dark h-[80vh] min-h-[600px] flex items-center justify-center overflow-hidden">
-<!-- ★ ここを差し替えました ★ -->
-<!-- ★ ここを差し替えました ★ -->
-<img alt="Campus View" class="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-multiply" src="/images/main.png"/>
+<img alt="Campus View" class="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-multiply" src={heroImageUrl}/>
 <div class="absolute inset-0 bg-gradient-to-t from-dark/90 via-transparent to-transparent"></div>
 <div class="relative z-10 text-center px-4 max-w-5xl mx-auto">
 <p class="text-secondary font-bold tracking-[0.2em] mb-4 text-sm md:text-base uppercase">Johoku Information University</p>
 <h2 class="text-3xl md:text-5xl lg:text-6xl font-serif font-bold text-white leading-tight mb-8 drop-shadow-lg">
 <br class="hidden md:block"/>社会の枠をはみ出し、<br/>
 <br class="hidden md:block"/>無限の可能性を育め。
-                    </h2>
+</h2>
 <div class="w-24 h-1 bg-secondary mx-auto mb-8"></div>
 <!-- Global Slogan -->
 <div class="inline-block bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-lg shadow-xl">
@@ -31,7 +50,7 @@ import Layout from "../layouts/Layout.astro";
 </div>
 </div>
 </div>
-<!-- News & Topics (以下略) -->
+<!-- News & Topics -->
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
 <div class="flex justify-between items-end mb-10 border-b pb-4">
 <h3 class="text-3xl font-serif font-bold text-primary">News &amp; Topics</h3>
