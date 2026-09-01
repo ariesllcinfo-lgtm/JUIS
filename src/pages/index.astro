@@ -23,16 +23,11 @@ const heroImageUrl = heroData?.main_image?.url || "https://placehold.co/1920x108
 ---
 
 <Layout title="城北情報大学" description="AI時代の学問と社会を再構築する城北情報大学の公式サイトです。">
-<div style="display:none" id="debug-info">
-  <p>DEBUG serviceDomain: {JSON.stringify(import.meta.env.MICROCMS_SERVICE_DOMAIN)}</p>
-  <p>DEBUG apiKeyLen: {(import.meta.env.MICROCMS_API_KEY || "").length}</p>
-  <p>DEBUG heroData: {JSON.stringify(heroData)}</p>
-</div>
 <section class="">
 <!-- Hero Banner -->
 <div class="relative bg-dark h-[80vh] min-h-[600px] flex items-center justify-center overflow-hidden">
-<img alt="Campus View" class="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-multiply" src={heroImageUrl}/>
-<div class="absolute inset-0 bg-gradient-to-t from-dark/90 via-transparent to-transparent"></div>
+<img alt="Campus View" class="absolute inset-0 w-full h-full object-cover opacity-60" src={heroImageUrl}/>
+<div class="absolute inset-0 bg-dark/60"></div>
 <div class="relative z-10 text-center px-4 max-w-5xl mx-auto">
 <p class="text-secondary font-bold tracking-[0.2em] mb-4 text-sm md:text-base uppercase">Johoku Information University</p>
 <h2 class="text-3xl md:text-5xl lg:text-6xl font-serif font-bold text-white leading-tight mb-8 drop-shadow-lg">
