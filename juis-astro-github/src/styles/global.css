@@ -1,9 +1,0 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root { color-scheme: light; }
-html { background: #f8fafc; }
-body { margin: 0; }
-.timeline-item::before { content: ""; position: absolute; left: -33px; top: 6px; width: 16px; height: 16px; border-radius: 50%; background-color: #1e3a8a; border: 3px solid #fff; box-shadow: 0 0 0 2px #e2e8f0; }
-.nav-link.active-nav { color: #1e3a8a; font-weight: 700; border-bottom: 2px solid #1e3a8a; }
