@@ -1,0 +1,44 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { createClient } from "microcms-js-sdk";
+
+const client = createClient({
+  serviceDomain: import.meta.env.MICROCMS_SERVICE_DOMAIN,
+  apiKey: import.meta.env.MICROCMS_API_KEY,
+});
+
+let newsItems = [];
+try {
+  const res = await client.get({
+    endpoint: "news",
+    queries: { limit: 100 },
+  });
+  newsItems = res.contents;
+} catch (error) {
+  console.error("newsの取得に失敗しました", error);
+}
+
+function formatDate(dateStr) {
+  return new Date(dateStr)
+    .toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" })
+    .replace(/\//g, ".");
+}
+---
+
+<Layout title="お知らせ一覧" description="城北情報大学からのお知らせ一覧です。">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+<h1 class="text-3xl font-serif font-bold text-primary mb-10 border-b pb-4">News</h1>
+<div class="divide-y divide-gray-200">
+{newsItems.map((item) => (
+<a href={`/news/${item.id}/`} class="block py-6 hover:bg-gray-50 transition -mx-4 px-4">
+<div class="flex items-center gap-3 mb-2 flex-wrap">
+<time class="text-sm text-gray-500 font-medium">{formatDate(item.publishedAt)}</time>
+{item.category && <span class="inline-block px-2 py-1 bg-blue-100 text-primary text-[10px] rounded">{item.category.name}</span>}
+</div>
+<h2 class="text-lg font-bold text-gray-900">{item.title}</h2>
+</a>
+))}
+{newsItems.length === 0 && <p class="text-gray-500 py-10">現在お知らせはありません。</p>}
+</div>
+</div>
+</Layout>
