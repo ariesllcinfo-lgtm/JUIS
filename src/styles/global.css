@@ -1,6 +1,13 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Noto Sans JP", sans-serif;
+  --font-serif: "Noto Serif JP", serif;
+  --color-primary: #1e3a8a;
+  --color-secondary: #3b82f6;
+  --color-dark: #0f172a;
+  --color-light: #f8fafc;
+}
 
 :root { color-scheme: light; }
 html { background: #f8fafc; }
