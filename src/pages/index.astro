@@ -8,15 +8,21 @@ const client = createClient({
   apiKey: import.meta.env.MICROCMS_API_KEY,
 });
 
+// --- デバッグ用ログ（原因特定できたら削除） ---
+console.log("DEBUG serviceDomain:", JSON.stringify(import.meta.env.MICROCMS_SERVICE_DOMAIN));
+console.log("DEBUG apiKey length:", (import.meta.env.MICROCMS_API_KEY || "").length);
+
 // トップページ設定APIからデータを取得
 let heroData;
 try {
   heroData = await client.getObject({
     endpoint: "main",
   });
+  console.log("DEBUG heroData:", JSON.stringify(heroData));
 } catch (error) {
   console.error("microCMSのデータ取得に失敗しました", error);
 }
+// --- デバッグ用ログここまで ---
 
 // 画像のURLを取得 (フォールバックとしてプレースホルダーを設定)
 const heroImageUrl = heroData?.main_image?.url || "https://placehold.co/1920x1080/1e3a8a/ffffff?text=Academic+Excellence";
