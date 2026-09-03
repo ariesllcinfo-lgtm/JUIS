@@ -1,0 +1,130 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+// 以下は仮のサンプルデータです。実際の情報に差し替えてください。
+
+const faculty = [
+  {
+    name: "黒瀬 隆",
+    department: "システム農学部",
+    title: "教授",
+    specialty: "スマートアグリカルチャー／環境データ解析",
+    bio: "センサーとAIを組み合わせた次世代農業の社会実装を研究。企業との共同プロジェクトを多数手がける。",
+  },
+  {
+    name: "宮内 玲奈",
+    department: "情報法経学部",
+    title: "准教授",
+    specialty: "デジタル経済法／プラットフォーム規制",
+    bio: "テクノロジーの進化に法制度がどう追いつくかをテーマに、国内外の政策動向を研究。",
+  },
+  {
+    name: "東 悠真",
+    department: "システム農学部",
+    title: "講師",
+    specialty: "機械学習／データサイエンス教育",
+    bio: "「ゲーミフィケーション学習」プラットフォームの設計を主導。学生の熱狂プロジェクトの多くを指導。",
+  },
+  {
+    name: "白鳥 彩",
+    department: "情報法経学部",
+    title: "教授",
+    specialty: "行動経済学／組織デザイン",
+    bio: "「ボーダーレス・ラボ」の運営責任者。企業・地域住民・学生が交わる場のデザインを研究。",
+  },
+];
+
+const publications = [
+  {
+    title: "次世代スマートアグリカルチャーにおけるセンサーデータ統合の課題",
+    authors: "黒瀬隆、東悠真",
+    venue: "日本農業情報学会誌",
+    year: "2026",
+  },
+  {
+    title: "プラットフォーム経済における国際的な法規制の比較分析",
+    authors: "宮内玲奈",
+    venue: "情報法経研究",
+    year: "2026",
+  },
+  {
+    title: "ゲーミフィケーションを用いたプログラミング初学者教育の効果検証",
+    authors: "東悠真",
+    venue: "教育工学研究紀要",
+    year: "2025",
+  },
+  {
+    title: "共創型コワーキングスペースが学生の起業意識に与える影響",
+    authors: "白鳥彩、宮内玲奈",
+    venue: "組織行動学会誌",
+    year: "2025",
+  },
+];
+
+const institutes = [
+  {
+    name: "ボーダーレス・ラボ",
+    desc: "企業・スタートアップ・地域住民が自由に出入りし、学生とともにプロジェクトを進める共創型コワーキングスペース。",
+  },
+  {
+    name: "AI社会実装研究センター",
+    desc: "協賛企業と連携し、実際のビジネス課題にAI・データ分析で取り組む社会実装型PBLの拠点。",
+  },
+  {
+    name: "Out of the Boxファンド事務局",
+    desc: "学生の常識外れなアイデアに対して返済不要のシード資金を提供する、学内シード投資制度の運営組織。",
+  },
+];
+---
+
+<Layout title="教育・研究" description="教員紹介・出版物紹介・附属機関をご紹介します。">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+
+  <!-- 教員紹介 -->
+  <section class="mb-24">
+    <h1 class="text-3xl font-serif font-bold text-primary mb-10 border-b pb-4">教員紹介</h1>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      {faculty.map((f) => (
+        <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+          <div class="flex items-baseline gap-2 mb-1">
+            <h3 class="text-lg font-bold text-gray-900">{f.name}</h3>
+            <span class="text-sm text-gray-500">{f.title}</span>
+          </div>
+          <p class="text-xs text-secondary font-medium mb-3">{f.department}</p>
+          <p class="text-sm font-bold text-gray-700 mb-2">{f.specialty}</p>
+          <p class="text-sm text-gray-600 leading-relaxed">{f.bio}</p>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <!-- 出版物紹介 -->
+  <section class="mb-24">
+    <h2 class="text-3xl font-serif font-bold text-primary mb-10 border-b pb-4">出版物紹介</h2>
+    <div class="divide-y divide-gray-200">
+      {publications.map((p) => (
+        <div class="py-6">
+          <p class="text-xs text-gray-500 font-medium mb-1">{p.venue}（{p.year}）</p>
+          <h3 class="text-lg font-bold text-gray-900 mb-1">{p.title}</h3>
+          <p class="text-sm text-gray-600">{p.authors}</p>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <!-- 附属機関 -->
+  <section>
+    <h2 class="text-3xl font-serif font-bold text-primary mb-10 border-b pb-4">附属機関</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {institutes.map((i) => (
+        <div class="border-l-4 border-secondary pl-6">
+          <h3 class="text-lg font-bold text-gray-900 mb-2">{i.name}</h3>
+          <p class="text-sm text-gray-600 leading-relaxed">{i.desc}</p>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <p class="text-xs text-gray-400 mt-16">※ このページの内容はすべて仮のサンプルです。実際の情報に差し替えてください。</p>
+</div>
+</Layout>
