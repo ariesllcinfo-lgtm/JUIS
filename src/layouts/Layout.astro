@@ -6,7 +6,9 @@ const path = Astro.url.pathname;
 const nav = [
   { href: "/", label: "ホーム" },
   { href: "/news/", label: "News" },
+  { href: "/topics/", label: "Topics" },
   { href: "/academics/", label: "学部・大学院" },
+  { href: "/research/", label: "教育・研究" },
   { href: "/about/", label: "大学紹介" },
   { href: "/admissions/", label: "入試情報" },
 ];
@@ -52,8 +54,8 @@ const nav = [
 <!-- Links 1 -->
 <div class="flex flex-col space-y-2 text-sm">
 <a class="hover:text-white transition" href="/academics/">学部・大学院</a>
+<a class="hover:text-white transition" href="/research/">教育・研究</a>
 <a class="hover:text-white transition" href="/about/">大学紹介</a>
-<a class="hover:text-white transition" href="#">教員紹介</a>
 <a class="hover:text-white transition" href="#">キャンパスライフ</a>
 </div>
 <!-- Links 2 -->
