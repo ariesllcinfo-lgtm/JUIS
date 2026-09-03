@@ -8,16 +8,8 @@ const client = createClient({
   apiKey: import.meta.env.MICROCMS_API_KEY,
 });
 
-// トップページ設定APIからヒーロー画像を取得
-let heroData;
-try {
-  heroData = await client.getObject({
-    endpoint: "main",
-  });
-} catch (error) {
-  console.error("microCMSのデータ取得に失敗しました", error);
-}
-const heroImageUrl = heroData?.main_image?.url || "https://placehold.co/1920x1080/1e3a8a/ffffff?text=Academic+Excellence";
+// トップページ画像を固定URLで指定
+const heroImageUrl = "https://images.microcms-assets.io/assets/1fc36b6913d840d3b8cb34a369d9e9b0/a741d169a5e3469693ba43b2001a55ac/main.png";
 
 // NewsAPIから最新3件を取得
 let newsItems = [];
@@ -54,7 +46,7 @@ function formatDate(dateStr) {
 <section>
 <!-- Hero Banner -->
 <div class="relative bg-dark h-[80vh] min-h-[600px] flex items-center justify-center overflow-hidden">
-<img alt="Campus View" class="absolute inset-0 w-full h-full object-cover" src={heroImageUrl}/>
+<img alt="Campus View" class="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-multiply" src={heroImageUrl}/>
 <div class="relative z-10 text-center px-4 max-w-5xl mx-auto">
 <h2 class="text-3xl md:text-5xl lg:text-6xl font-serif font-bold text-white leading-tight mb-8 drop-shadow-lg">
 <br class="hidden md:block"/>社会の枠をはみ出し、<br/>
