@@ -28,11 +28,8 @@ function formatDate(dateStr) {
 
 <Layout title={item.title} description={item.title}>
 <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-<div class="flex items-center gap-3 mb-6 flex-wrap">
 <time class="text-sm text-gray-500 font-medium">{formatDate(item.publishedAt)}</time>
-{item.category && <span class="inline-block px-2 py-1 bg-blue-100 text-primary text-xs rounded">{item.category.name}</span>}
-</div>
-<h1 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mb-10 leading-tight">{item.title}</h1>
+<h1 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mt-4 mb-10 leading-tight">{item.title}</h1>
 <div class="rich-content" set:html={item.content} />
 <a href="/news/" class="inline-block mt-16 text-sm font-medium text-secondary hover:underline">← お知らせ一覧に戻る</a>
 </div>
