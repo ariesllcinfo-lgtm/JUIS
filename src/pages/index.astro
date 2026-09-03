@@ -1,19 +1,44 @@
 ---
-import Layout from "../../layouts/Layout.astro";
+import Layout from "../layouts/Layout.astro";
 import { createClient } from "microcms-js-sdk";
 
+// microCMSクライアントの初期化
 const client = createClient({
   serviceDomain: import.meta.env.MICROCMS_SERVICE_DOMAIN,
   apiKey: import.meta.env.MICROCMS_API_KEY,
 });
 
+// トップページ設定APIからヒーロー画像を取得
+let heroData;
+try {
+  heroData = await client.getObject({
+    endpoint: "main",
+  });
+} catch (error) {
+  console.error("microCMSのデータ取得に失敗しました", error);
+}
+const heroImageUrl = heroData?.main_image?.url || "https://placehold.co/1920x1080/1e3a8a/ffffff?text=Academic+Excellence";
+
+// NewsAPIから最新3件を取得
+let newsItems = [];
+try {
+  const newsRes = await client.get({
+    endpoint: "news",
+    queries: { limit: 3 },
+  });
+  newsItems = newsRes.contents;
+} catch (error) {
+  console.error("newsの取得に失敗しました", error);
+}
+
+// blogs API（Topics）から最新3件を取得
 let topicsItems = [];
 try {
-  const res = await client.get({
+  const topicsRes = await client.get({
     endpoint: "blogs",
-    queries: { limit: 100 },
+    queries: { limit: 3 },
   });
-  topicsItems = res.contents;
+  topicsItems = topicsRes.contents;
 } catch (error) {
   console.error("blogsの取得に失敗しました", error);
 }
@@ -25,20 +50,71 @@ function formatDate(dateStr) {
 }
 ---
 
-<Layout title="Topics一覧" description="城北情報大学のTopics（ブログ）一覧です。">
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-<h1 class="text-3xl font-serif font-bold text-primary mb-10 border-b pb-4">Topics</h1>
+<Layout title="城北情報大学" description="AI時代の学問と社会を再構築する城北情報大学の公式サイトです。">
+<section>
+<!-- Hero Banner -->
+<div class="relative bg-dark h-[80vh] min-h-[600px] flex items-center justify-center overflow-hidden">
+<img alt="Campus View" class="absolute inset-0 w-full h-full object-cover" src={heroImageUrl}/>
+<div class="relative z-10 text-center px-4 max-w-5xl mx-auto">
+<h2 class="text-3xl md:text-5xl lg:text-6xl font-serif font-bold text-white leading-tight mb-8 drop-shadow-lg">
+<br class="hidden md:block"/>社会の枠をはみ出し、<br/>
+<br class="hidden md:block"/>無限の可能性を育め。
+</h2>
+<div class="w-24 h-1 bg-secondary mx-auto mb-8"></div>
+<!-- Global Slogan -->
+<div class="inline-block bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-lg shadow-xl">
+<h3 class="text-xl md:text-2xl font-serif text-white mb-2 tracking-widest">Global Slogan</h3>
+<div class="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-white tracking-widest">
+                            J.O.K.E
+                        </div>
+<div class="mt-4 flex flex-wrap justify-center gap-4 text-gray-200 text-sm md:text-base font-medium">
+<span>Joyful</span><span class="opacity-50">/</span>
+<span>Open</span><span class="opacity-50">/</span>
+<span>Knowledge</span><span class="opacity-50">/</span>
+<span>Explore</span>
+</div>
+</div>
+</div>
+</div>
+
+<!-- News -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+<div class="flex justify-between items-end mb-10 border-b pb-4">
+<h3 class="text-3xl font-serif font-bold text-primary">News</h3>
+<a class="text-sm font-medium text-secondary hover:underline" href="/news/">一覧を見る →</a>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+{newsItems.map((item) => (
+<a href={`/news/${item.id}/`} class="block bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+<div class="p-6">
+<time class="text-xs text-gray-500 font-medium">{formatDate(item.publishedAt)}</time>
+<h4 class="mt-3 text-lg font-bold text-gray-900 leading-tight">{item.title}</h4>
+</div>
+</a>
+))}
+{newsItems.length === 0 && <p class="text-gray-500 col-span-full">現在お知らせはありません。</p>}
+</div>
+</div>
+
+<!-- Topics -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+<div class="flex justify-between items-end mb-10 border-b pb-4">
+<h3 class="text-3xl font-serif font-bold text-primary">Topics</h3>
+<a class="text-sm font-medium text-secondary hover:underline" href="/topics/">一覧を見る →</a>
+</div>
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
 {topicsItems.map((item) => (
 <a href={`/topics/${item.id}/`} class="block bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
 {item.eyecatch && <img src={item.eyecatch.url} alt={item.title} class="w-full h-48 object-cover" />}
 <div class="p-6">
 <time class="text-xs text-gray-500 font-medium">{formatDate(item.publishedAt)}</time>
-<h2 class="mt-3 text-lg font-bold text-gray-900 leading-tight">{item.title}</h2>
+<h4 class="mt-3 text-lg font-bold text-gray-900 leading-tight">{item.title}</h4>
 </div>
 </a>
 ))}
 {topicsItems.length === 0 && <p class="text-gray-500 col-span-full">現在Topicsはありません。</p>}
 </div>
 </div>
+
+</section>
 </Layout>
