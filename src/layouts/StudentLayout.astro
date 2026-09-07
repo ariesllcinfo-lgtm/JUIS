@@ -1,0 +1,45 @@
+---
+// src/layouts/StudentLayout.astro
+//
+// 学生ポータル共通のレイアウトです。今後セクションが増えても、
+// 下の nav 配列に1行足すだけで済むようにしています。
+import Layout from "./Layout.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+const { title, description } = Astro.props;
+const path = Astro.url.pathname;
+
+const nav = [
+  { href: "/students/", label: "ホーム" },
+  { href: "/students/lectures/", label: "講義動画" },
+  { href: "/students/books/", label: "書籍（学生割引）" },
+];
+---
+
+<Layout title={title} description={description}>
+  <section class="bg-light py-16">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <nav class="flex gap-6 mb-10 border-b border-gray-200 pb-3 overflow-x-auto">
+        {
+          nav.map((item) => (
+            <a
+              href={item.href}
+              class:list={[
+                "text-sm font-medium pb-2 whitespace-nowrap border-b-2",
+                path === item.href
+                  ? "text-primary border-primary"
+                  : "text-gray-500 border-transparent hover:text-primary",
+              ]}
+            >
+              {item.label}
+            </a>
+          ))
+        }
+      </nav>
+      <slot />
+    </div>
+  </section>
+</Layout>
