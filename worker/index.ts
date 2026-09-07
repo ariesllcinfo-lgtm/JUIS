@@ -5,9 +5,15 @@
 // Astro APIルートは実行時に動きません。
 //
 // 代わりに、このWorkerスクリプトを ./dist の手前に1枚だけ挟みます。
-// /api/submissions 宛のリクエストだけこのWorkerが処理し、それ以外は
+// /api/以下のリクエストだけこのWorkerが処理し、それ以外は
 // これまで通り ASSETS バインディング経由で静的ファイルを返します。
 // サイトの他の部分（ビルド方法・ページ構成）は一切変更不要です。
+//
+// 追加した /api/admin/summary は集計値のみを返し、contact_email や
+// 自由記述の faculty、生の answers は一切含めません
+// （ダッシュボードで個人情報を扱わないための意図的な設計です）。
+// このエンドポイントとダッシュボードページ（/admin/以下）は
+// Cloudflare Access等で必ずアクセス制限してください。詳細はSETUP.mdへ。
 
 export interface Env {
   DB: D1Database;
@@ -91,12 +97,64 @@ async function handleSubmission(request: Request, env: Env): Promise<Response> {
   return json({ ok: true }, 200);
 }
 
+async function handleSummary(env: Env): Promise<Response> {
+  const total = await env.DB.prepare(
+    "SELECT COUNT(*) AS total FROM submissions"
+  ).first<{ total: number }>();
+
+  const byFaculty = await env.DB.prepare(
+    `SELECT personality_type AS label, COUNT(*) AS count
+     FROM submissions
+     WHERE personality_type IS NOT NULL
+     GROUP BY personality_type
+     ORDER BY count DESC`
+  ).all();
+
+  const byEducation = await env.DB.prepare(
+    `SELECT education AS label, COUNT(*) AS count
+     FROM submissions
+     WHERE education IS NOT NULL AND education != ''
+     GROUP BY education
+     ORDER BY count DESC`
+  ).all();
+
+  const byOccupation = await env.DB.prepare(
+    `SELECT occupation AS label, COUNT(*) AS count
+     FROM submissions
+     WHERE occupation IS NOT NULL AND occupation != ''
+     GROUP BY occupation
+     ORDER BY count DESC`
+  ).all();
+
+  const recent = await env.DB.prepare(
+    `SELECT created_at, personality_type, education, occupation
+     FROM submissions
+     ORDER BY created_at DESC
+     LIMIT 20`
+  ).all();
+
+  return json(
+    {
+      total: total?.total ?? 0,
+      byFaculty: byFaculty.results,
+      byEducation: byEducation.results,
+      byOccupation: byOccupation.results,
+      recent: recent.results,
+    },
+    200
+  );
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/submissions") {
       return handleSubmission(request, env);
+    }
+
+    if (url.pathname === "/api/admin/summary" && request.method === "GET") {
+      return handleSummary(env);
     }
 
     // それ以外は静的アセット（distの中身）をそのまま返す
