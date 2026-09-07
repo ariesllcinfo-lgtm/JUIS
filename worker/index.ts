@@ -1,24 +1,37 @@
 // worker/index.ts
 //
-// JUISサイトは Astro の output: 'static' でビルドされた完全な静的サイトです
-// （Astroのアダプターは使っていません）。そのため submissions.ts のような
-// Astro APIルートは実行時に動きません。
+// JUISサイトは Astro の output: 'static' でビルドされた完全な静的サイトです。
+// このWorkerが /api/以下のリクエストを処理し、それ以外は静的アセットを返します。
 //
-// 代わりに、このWorkerスクリプトを ./dist の手前に1枚だけ挟みます。
-// /api/以下のリクエストだけこのWorkerが処理し、それ以外は
-// これまで通り ASSETS バインディング経由で静的ファイルを返します。
-// サイトの他の部分（ビルド方法・ページ構成）は一切変更不要です。
+// 学生専用サイト（/students/以下）は Cloudflare Access で保護する前提です。
+// Access配下のパスでは、Cloudflareが検証済みのメールアドレスを
+// Cf-Access-Authenticated-User-Email ヘッダーに入れてリクエストを転送してくれます。
+// このヘッダーは、対象パスがAccessで保護されている場合に限り
+// クライアント側からの偽装ができません。/api/students/* もAccessの
+// 保護対象パスに必ず含めてください（STUDENTS-SETUP.md参照）。
 //
-// 追加した /api/admin/summary は集計値のみを返し、contact_email や
-// 自由記述の faculty、生の answers は一切含めません
-// （ダッシュボードで個人情報を扱わないための意図的な設計です）。
-// このエンドポイントとダッシュボードページ（/admin/以下）は
-// Cloudflare Access等で必ずアクセス制限してください。詳細はSETUP.mdへ。
+// ルーティングは下の `routes` テーブルにまとめています。
+// 今後エンドポイントが増えても、この表に1行足すだけで済みます。
 
 export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
 }
+
+type Handler = (request: Request, env: Env) => Promise<Response>;
+
+function json(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function getAccessEmail(request: Request): string | null {
+  return request.headers.get("Cf-Access-Authenticated-User-Email");
+}
+
+// ---- 適性診断（/admissions/survey/） ----
 
 interface SubmissionBody {
   session_id?: string;
@@ -31,18 +44,7 @@ interface SubmissionBody {
   consent?: number | boolean;
 }
 
-function json(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
 async function handleSubmission(request: Request, env: Env): Promise<Response> {
-  if (request.method !== "POST") {
-    return json({ error: "method_not_allowed" }, 405);
-  }
-
   let body: SubmissionBody;
   try {
     body = await request.json();
@@ -97,7 +99,9 @@ async function handleSubmission(request: Request, env: Env): Promise<Response> {
   return json({ ok: true }, 200);
 }
 
-async function handleSummary(env: Env): Promise<Response> {
+// ---- 管理ダッシュボード（/admin/survey-results/） ----
+
+async function handleAdminSummary(_request: Request, env: Env): Promise<Response> {
   const total = await env.DB.prepare(
     "SELECT COUNT(*) AS total FROM submissions"
   ).first<{ total: number }>();
@@ -145,19 +149,86 @@ async function handleSummary(env: Env): Promise<Response> {
   );
 }
 
+// ---- 学生ポータル（/students/以下） ----
+
+async function handleStudentMe(request: Request, env: Env): Promise<Response> {
+  const email = getAccessEmail(request);
+  if (!email) {
+    return json({ error: "not_authenticated" }, 401);
+  }
+
+  const orders = await env.DB.prepare(
+    `SELECT book_title, price, ordered_at
+     FROM book_orders
+     WHERE student_email = ?
+     ORDER BY ordered_at DESC`
+  )
+    .bind(email)
+    .all();
+
+  return json({ email, orders: orders.results }, 200);
+}
+
+interface PurchaseBody {
+  book_title?: string;
+  price?: number;
+}
+
+async function handlePurchase(request: Request, env: Env): Promise<Response> {
+  const email = getAccessEmail(request);
+  if (!email) {
+    return json({ error: "not_authenticated" }, 401);
+  }
+
+  let body: PurchaseBody;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "invalid_json" }, 400);
+  }
+
+  const { book_title, price } = body;
+  if (!book_title || typeof price !== "number") {
+    return json({ error: "book_title_and_price_required" }, 400);
+  }
+
+  try {
+    await env.DB.prepare(
+      `INSERT INTO book_orders (student_email, book_title, price)
+       VALUES (?, ?, ?)`
+    )
+      .bind(email, book_title, price)
+      .run();
+  } catch (err) {
+    return json({ error: "db_write_failed" }, 500);
+  }
+
+  return json({ ok: true }, 200);
+}
+
+// ---- ルーティング表 ----
+// 新しいエンドポイントは、ここに1行足すだけで使えるようになります。
+// 例: "/api/students/progress": { GET: handleStudentProgress },
+
+const routes: Record<string, Partial<Record<string, Handler>>> = {
+  "/api/submissions": { POST: handleSubmission },
+  "/api/admin/summary": { GET: handleAdminSummary },
+  "/api/students/me": { GET: handleStudentMe },
+  "/api/students/purchase": { POST: handlePurchase },
+};
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    const methodHandlers = routes[url.pathname];
 
-    if (url.pathname === "/api/submissions") {
-      return handleSubmission(request, env);
+    if (methodHandlers) {
+      const handler = methodHandlers[request.method];
+      if (handler) return handler(request, env);
+      return json({ error: "method_not_allowed" }, 405);
     }
 
-    if (url.pathname === "/api/admin/summary" && request.method === "GET") {
-      return handleSummary(env);
-    }
-
-    // それ以外は静的アセット（distの中身）をそのまま返す
+    // ルート表にないパスは、静的アセット（distの中身）をそのまま返す
     return env.ASSETS.fetch(request);
   },
 };
