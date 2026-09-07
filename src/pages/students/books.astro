@@ -1,0 +1,110 @@
+---
+// src/pages/students/books.astro
+import StudentLayout from "../../layouts/StudentLayout.astro";
+import { books } from "../../data/books";
+---
+
+<StudentLayout title="書籍（学生割引）" description="城北情報大学の指定教科書を学生価格で購入できます。">
+  <h1 class="text-3xl font-serif font-bold text-primary mb-2">書籍（学生割引）</h1>
+  <p class="text-gray-600 mb-10">
+    指定教科書を学生価格（定価の半額）で購入できます。
+    ※デモのため実際の決済は発生しません。
+  </p>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+    {
+      books.map((book) => (
+        <div
+          class="bg-white rounded-xl shadow-md overflow-hidden border-t-4 p-6"
+          style={`border-color:${book.color}`}
+          data-book={book.title}
+          data-price={book.studentPrice}
+        >
+          <p class="text-xs text-gray-400 mb-1">{book.faculty}</p>
+          <h2 class="text-lg font-bold text-gray-900 mb-3">{book.title}</h2>
+          <p class="mb-4">
+            <span class="text-gray-400 line-through text-sm mr-2">
+              ¥{book.price.toLocaleString()}
+            </span>
+            <span class="text-2xl font-bold" style={`color:${book.color}`}>
+              ¥{book.studentPrice.toLocaleString()}
+            </span>
+          </p>
+          <button
+            type="button"
+            class="buy-btn text-sm font-bold py-2 px-4 rounded text-white w-full"
+            style={`background-color:${book.color}`}
+          >
+            購入する
+          </button>
+        </div>
+      ))
+    }
+  </div>
+
+  <div class="bg-white rounded-xl shadow-md p-8">
+    <h2 class="text-xl font-bold text-gray-900 mb-4">購入履歴</h2>
+    <div id="orders">読み込み中…</div>
+  </div>
+</StudentLayout>
+
+<script>
+  async function loadOrders() {
+    const el = document.getElementById("orders")!;
+    try {
+      const res = await fetch("/api/students/me");
+      if (!res.ok) throw new Error("not_authenticated");
+      const data: {
+        orders: { book_title: string; price: number; ordered_at: string }[];
+      } = await res.json();
+
+      if (data.orders.length === 0) {
+        el.innerHTML = '<p class="text-sm text-gray-400">購入履歴はまだありません。</p>';
+        return;
+      }
+
+      el.innerHTML = data.orders
+        .map(
+          (o) => `
+            <div class="flex justify-between text-sm border-b border-gray-100 py-2">
+              <span>${o.book_title}</span>
+              <span class="text-gray-500">¥${o.price.toLocaleString()}</span>
+            </div>
+          `
+        )
+        .join("");
+    } catch {
+      el.innerHTML =
+        '<p class="text-sm text-red-500">購入履歴の取得に失敗しました。</p>';
+    }
+  }
+
+  document.querySelectorAll<HTMLButtonElement>(".buy-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const card = btn.closest<HTMLElement>("[data-book]")!;
+      const bookTitle = card.dataset.book!;
+      const price = Number(card.dataset.price);
+
+      btn.disabled = true;
+      btn.textContent = "処理中…";
+
+      try {
+        const res = await fetch("/api/students/purchase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ book_title: bookTitle, price }),
+        });
+        if (!res.ok) throw new Error("purchase_failed");
+
+        btn.textContent = "購入済み";
+        await loadOrders();
+      } catch {
+        btn.disabled = false;
+        btn.textContent = "購入する";
+        alert("購入に失敗しました。もう一度お試しください。");
+      }
+    });
+  });
+
+  loadOrders();
+</script>

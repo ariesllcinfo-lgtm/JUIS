@@ -1,0 +1,41 @@
+---
+// src/pages/students/lectures.astro
+import StudentLayout from "../../layouts/StudentLayout.astro";
+import { lectures } from "../../data/lectures";
+---
+
+<StudentLayout title="講義動画" description="城北情報大学の講義動画一覧です。">
+  <h1 class="text-3xl font-serif font-bold text-primary mb-2">講義動画</h1>
+  <p class="text-gray-600 mb-10">視聴したい講義を選んでください。</p>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    {
+      lectures.map((lecture) => (
+        <div
+          class="bg-white rounded-xl shadow-md overflow-hidden border-t-4"
+          style={`border-color:${lecture.color}`}
+        >
+          <div class="p-6">
+            <p class="text-xs text-gray-400 mb-1">{lecture.faculty}</p>
+            <h2 class="text-lg font-bold text-gray-900 mb-4">{lecture.title}</h2>
+            {lecture.youtubeId ? (
+              <div class="aspect-video">
+                <iframe
+                  class="w-full h-full rounded"
+                  src={`https://www.youtube-nocookie.com/embed/${lecture.youtubeId}`}
+                  title={lecture.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowfullscreen
+                />
+              </div>
+            ) : (
+              <div class="aspect-video bg-gray-50 border border-dashed border-gray-200 rounded flex items-center justify-center">
+                <p class="text-sm text-gray-400">動画は準備中です</p>
+              </div>
+            )}
+          </div>
+        </div>
+      ))
+    }
+  </div>
+</StudentLayout>
