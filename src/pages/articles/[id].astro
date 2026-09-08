@@ -11,18 +11,45 @@ export async function getStaticPaths() {
     endpoint: "articles",
     queries: { limit: 100 },
   });
-  return contents.map((item) => ({
-    params: { id: item.id },
-    props: { item },
-  }));
+  // News・Topicsは /news/ と /topics/ 側で専用ページを持つので、
+  // ここでは対象から除外する（同じ内容が2つのURLで重複しないように）。
+  return contents
+    .filter((item) => !item.type?.includes("News") && !item.type?.includes("Topics"))
+    .map((item) => ({
+      params: { id: item.id },
+      props: { item },
+    }));
 }
 
 const { item } = Astro.props;
+const isSyllabus = item.type?.includes("シラバス");
 ---
 
 <Layout title={item.title} description={item.title}>
 <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-<h1 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mb-10 leading-tight">{item.title}</h1>
+<h1 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mb-6 leading-tight">{item.title}</h1>
+
+{isSyllabus && (
+  <div class="bg-white rounded-xl shadow-md p-6 mb-10 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+    <div>
+      <p class="text-gray-400 text-xs mb-1">学部</p>
+      <p class="font-bold text-gray-900">{item.faculty || "-"}</p>
+    </div>
+    <div>
+      <p class="text-gray-400 text-xs mb-1">担当教員</p>
+      <p class="font-bold text-gray-900">{item.instructor || "-"}</p>
+    </div>
+    <div>
+      <p class="text-gray-400 text-xs mb-1">開講期</p>
+      <p class="font-bold text-gray-900">{item.term || "-"}</p>
+    </div>
+    <div>
+      <p class="text-gray-400 text-xs mb-1">単位数</p>
+      <p class="font-bold text-gray-900">{item.credits ?? "-"}</p>
+    </div>
+  </div>
+)}
+
 <div class="rich-content" set:html={item.content} />
 <a href="/academics/" class="inline-block mt-16 text-sm font-medium text-secondary hover:underline">← 学部・大学院に戻る</a>
 </div>
