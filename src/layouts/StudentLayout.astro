@@ -44,3 +44,18 @@ const nav = [
     </div>
   </section>
 </Layout>
+
+<script>
+  // 未登録の学生は、どのページに来ても登録画面に誘導する。
+  // /students/register/ 自体はこのレイアウトを使わないので無限ループしない。
+  (async () => {
+    try {
+      const res = await fetch("/api/students/profile");
+      if (res.status === 404) {
+        window.location.href = "/students/register/";
+      }
+    } catch {
+      // ネットワークエラー時は何もしない（ページはそのまま表示）
+    }
+  })();
+</script>
