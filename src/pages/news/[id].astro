@@ -8,13 +8,15 @@ export async function getStaticPaths() {
     apiKey: import.meta.env.MICROCMS_API_KEY,
   });
   const { contents } = await client.get({
-    endpoint: "news",
+    endpoint: "articles",
     queries: { limit: 100 },
   });
-  return contents.map((item) => ({
-    params: { id: item.id },
-    props: { item },
-  }));
+  return contents
+    .filter((item) => item.type?.includes("News"))
+    .map((item) => ({
+      params: { id: item.id },
+      props: { item },
+    }));
 }
 
 const { item } = Astro.props;
