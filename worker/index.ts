@@ -206,6 +206,57 @@ async function handlePurchase(request: Request, env: Env): Promise<Response> {
   return json({ ok: true }, 200);
 }
 
+// ---- 掲示板（/students/board/） ----
+
+async function handleBoardList(_request: Request, env: Env): Promise<Response> {
+  const posts = await env.DB.prepare(
+    `SELECT id, student_email, title, body, created_at
+     FROM board_posts
+     ORDER BY created_at DESC
+     LIMIT 50`
+  ).all();
+
+  return json({ posts: posts.results }, 200);
+}
+
+interface BoardPostBody {
+  title?: string;
+  body?: string;
+}
+
+async function handleBoardPost(request: Request, env: Env): Promise<Response> {
+  const email = getAccessEmail(request);
+  if (!email) {
+    return json({ error: "not_authenticated" }, 401);
+  }
+
+  let body: BoardPostBody;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "invalid_json" }, 400);
+  }
+
+  const title = body.title?.trim();
+  const content = body.body?.trim();
+  if (!title || !content) {
+    return json({ error: "title_and_body_required" }, 400);
+  }
+
+  try {
+    await env.DB.prepare(
+      `INSERT INTO board_posts (student_email, title, body)
+       VALUES (?, ?, ?)`
+    )
+      .bind(email, title, content)
+      .run();
+  } catch (err) {
+    return json({ error: "db_write_failed" }, 500);
+  }
+
+  return json({ ok: true }, 200);
+}
+
 // ---- ルーティング表 ----
 // 新しいエンドポイントは、ここに1行足すだけで使えるようになります。
 // 例: "/api/students/progress": { GET: handleStudentProgress },
@@ -215,6 +266,7 @@ const routes: Record<string, Partial<Record<string, Handler>>> = {
   "/api/admin/summary": { GET: handleAdminSummary },
   "/api/students/me": { GET: handleStudentMe },
   "/api/students/purchase": { POST: handlePurchase },
+  "/api/students/board": { GET: handleBoardList, POST: handleBoardPost },
 };
 
 export default {
