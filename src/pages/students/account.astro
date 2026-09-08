@@ -1,0 +1,113 @@
+---
+// src/pages/students/account.astro
+import StudentLayout from "../../layouts/StudentLayout.astro";
+---
+
+<StudentLayout title="アカウント情報" description="城北情報大学の学生アカウント情報です。">
+  <h1 class="text-3xl font-serif font-bold text-primary mb-10">アカウント情報</h1>
+
+  <div class="bg-white rounded-xl shadow-md p-8 mb-10">
+    <h2 class="text-lg font-bold text-gray-900 mb-4">登録情報</h2>
+    <div id="profile-info" class="text-sm text-gray-700 space-y-2">読み込み中…</div>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-md p-8">
+    <h2 class="text-lg font-bold text-gray-900 mb-2">メールアドレスの変更</h2>
+    <p class="text-sm text-gray-500 mb-6">
+      新しいメールアドレスを入力して申請してください。その後、<strong>新しいメールアドレスで一度ログインし直す</strong>と、
+      氏名・学籍番号・購入履歴・掲示板の投稿がそのまま引き継がれます。
+      ログインし直すまでは、今のメールアドレスも引き続き使えます。
+    </p>
+    <form id="email-change-form" class="flex flex-col sm:flex-row gap-3">
+      <input
+        type="email"
+        id="new_email"
+        name="new_email"
+        required
+        placeholder="new-email@example.com"
+        class="flex-1 border border-gray-300 rounded px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary"
+      />
+      <button
+        type="submit"
+        id="email-change-submit"
+        class="bg-primary hover:bg-blue-800 text-white font-bold py-2 px-6 rounded transition duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        申請する
+      </button>
+    </form>
+    <p id="email-change-message" class="text-sm mt-4" hidden></p>
+  </div>
+
+  <p class="text-xs text-gray-400 mt-8">
+    現在のメールアドレスに全くアクセスできなくなった場合は、ご自身では変更できません。大学窓口までご連絡ください。
+  </p>
+</StudentLayout>
+
+<script>
+  interface Profile {
+    email: string;
+    name: string;
+    faculty: string;
+    enrollment_year: number;
+    student_id: string;
+  }
+
+  async function loadProfile() {
+    const el = document.getElementById("profile-info")!;
+    try {
+      const res = await fetch("/api/students/profile");
+      if (!res.ok) throw new Error("not_registered");
+      const p: Profile = await res.json();
+      el.innerHTML = `
+        <p><span class="text-gray-400">氏名：</span>${p.name}</p>
+        <p><span class="text-gray-400">学籍番号：</span>${p.student_id}</p>
+        <p><span class="text-gray-400">学部：</span>${p.faculty}</p>
+        <p><span class="text-gray-400">入学年度：</span>${p.enrollment_year}年度</p>
+        <p><span class="text-gray-400">現在のメールアドレス：</span>${p.email}</p>
+      `;
+    } catch {
+      el.innerHTML = '<p class="text-red-500">情報を取得できませんでした。</p>';
+    }
+  }
+
+  const form = document.getElementById("email-change-form") as HTMLFormElement;
+  const submitBtn = document.getElementById(
+    "email-change-submit"
+  ) as HTMLButtonElement;
+  const messageEl = document.getElementById("email-change-message")!;
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    messageEl.hidden = true;
+
+    const data = new FormData(form);
+    const newEmail = String(data.get("new_email") ?? "").trim();
+    if (!newEmail) return;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "申請中…";
+
+    try {
+      const res = await fetch("/api/students/request-email-change", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ new_email: newEmail }),
+      });
+      if (!res.ok) throw new Error("request_failed");
+
+      messageEl.textContent = `申請を受け付けました。${newEmail} でログインし直すと切り替わります。`;
+      messageEl.className = "text-sm mt-4 text-green-600";
+      messageEl.hidden = false;
+      form.reset();
+    } catch {
+      messageEl.textContent = "申請に失敗しました。もう一度お試しください。";
+      messageEl.className = "text-sm mt-4 text-red-600";
+      messageEl.hidden = false;
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "申請する";
+    }
+  });
+
+  loadProfile();
+</script>
