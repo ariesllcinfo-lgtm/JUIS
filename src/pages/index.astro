@@ -11,28 +11,18 @@ const client = createClient({
 // ヒーロー画像は固定URL
 const heroImageUrl = "https://images.microcms-assets.io/assets/1fc36b6913d840d3b8cb34a369d9e9b0/a741d169a5e3469693ba43b2001a55ac/main.png";
 
-// NewsAPIから最新3件を取得
+// articlesから全件取得し、type別に絞り込んで最新3件ずつ使う
 let newsItems = [];
-try {
-  const newsRes = await client.get({
-    endpoint: "news",
-    queries: { limit: 3 },
-  });
-  newsItems = newsRes.contents;
-} catch (error) {
-  console.error("newsの取得に失敗しました", error);
-}
-
-// blogs API（Topics）から最新3件を取得
 let topicsItems = [];
 try {
-  const topicsRes = await client.get({
-    endpoint: "blogs",
-    queries: { limit: 3 },
+  const res = await client.get({
+    endpoint: "articles",
+    queries: { limit: 100 },
   });
-  topicsItems = topicsRes.contents;
+  newsItems = res.contents.filter((a) => a.type?.includes("News")).slice(0, 3);
+  topicsItems = res.contents.filter((a) => a.type?.includes("Topics")).slice(0, 3);
 } catch (error) {
-  console.error("blogsの取得に失敗しました", error);
+  console.error("articlesの取得に失敗しました", error);
 }
 
 function formatDate(dateStr) {
@@ -110,4 +100,3 @@ function formatDate(dateStr) {
 
 </section>
 </Layout>
----
