@@ -10,12 +10,12 @@ const client = createClient({
 let newsItems = [];
 try {
   const res = await client.get({
-    endpoint: "news",
+    endpoint: "articles",
     queries: { limit: 100 },
   });
-  newsItems = res.contents;
+  newsItems = res.contents.filter((a) => a.type?.includes("News"));
 } catch (error) {
-  console.error("newsの取得に失敗しました", error);
+  console.error("articlesの取得に失敗しました", error);
 }
 
 function formatDate(dateStr) {
