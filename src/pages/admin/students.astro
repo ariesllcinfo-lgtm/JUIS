@@ -1,0 +1,150 @@
+---
+// src/pages/admin/students.astro
+// /admin/以下なので、Cloudflare Accessで保護されている前提です。
+import Layout from "../../layouts/Layout.astro";
+---
+
+<Layout title="学生アカウント管理" description="学籍番号からメールアドレスを変更する管理ツールです。">
+  <section class="bg-light py-16">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h1 class="text-2xl font-serif font-bold text-primary mb-2">学生アカウント管理</h1>
+      <p class="text-gray-500 text-sm mb-8">
+        メールアドレスに完全にアクセスできなくなった学生の、メールアドレスを手動で差し替えます。
+      </p>
+
+      <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+        <label for="search" class="block text-sm font-medium text-gray-700 mb-1">
+          学籍番号または氏名で検索
+        </label>
+        <input
+          type="text"
+          id="search"
+          placeholder="例：26LE0001 または 山田太郎"
+          class="w-full border border-gray-300 rounded px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary"
+        />
+        <div id="results" class="mt-4 space-y-2"></div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-md p-6" id="update-panel" hidden>
+        <h2 class="text-lg font-bold text-gray-900 mb-4">
+          <span id="selected-name"></span>（<span id="selected-id"></span>）のメールアドレスを変更
+        </h2>
+        <p class="text-sm text-gray-500 mb-4">現在：<span id="selected-email"></span></p>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <input
+            type="email"
+            id="new-email"
+            placeholder="new-email@example.com"
+            class="flex-1 border border-gray-300 rounded px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary"
+          />
+          <button
+            type="button"
+            id="update-submit"
+            class="bg-primary hover:bg-blue-800 text-white font-bold py-2 px-6 rounded transition duration-300 disabled:opacity-60"
+          >
+            変更する
+          </button>
+        </div>
+        <p id="update-message" class="text-sm mt-4" hidden></p>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  interface Student {
+    email: string;
+    name: string;
+    faculty: string;
+    student_id: string;
+  }
+
+  const searchInput = document.getElementById("search") as HTMLInputElement;
+  const resultsEl = document.getElementById("results")!;
+  const updatePanel = document.getElementById("update-panel")!;
+  const selectedName = document.getElementById("selected-name")!;
+  const selectedId = document.getElementById("selected-id")!;
+  const selectedEmail = document.getElementById("selected-email")!;
+  const newEmailInput = document.getElementById("new-email") as HTMLInputElement;
+  const updateBtn = document.getElementById("update-submit") as HTMLButtonElement;
+  const updateMessage = document.getElementById("update-message")!;
+
+  let currentStudentId = "";
+
+  let debounceTimer: ReturnType<typeof setTimeout>;
+  searchInput.addEventListener("input", () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(runSearch, 300);
+  });
+
+  async function runSearch() {
+    const q = searchInput.value.trim();
+    if (!q) {
+      resultsEl.innerHTML = "";
+      return;
+    }
+    try {
+      const res = await fetch(`/api/admin/students/search?q=${encodeURIComponent(q)}`);
+      const data: { students: Student[] } = await res.json();
+
+      if (data.students.length === 0) {
+        resultsEl.innerHTML = '<p class="text-sm text-gray-400">該当する学生が見つかりません。</p>';
+        return;
+      }
+
+      resultsEl.innerHTML = data.students
+        .map(
+          (s) => `
+            <button type="button" class="select-student w-full text-left border border-gray-200 rounded px-4 py-2 hover:bg-gray-50" data-id="${s.student_id}" data-name="${s.name}" data-email="${s.email}">
+              <span class="font-bold">${s.name}</span>
+              <span class="text-gray-400 text-sm ml-2">${s.student_id} ／ ${s.faculty}</span>
+            </button>
+          `
+        )
+        .join("");
+
+      resultsEl.querySelectorAll<HTMLButtonElement>(".select-student").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          currentStudentId = btn.dataset.id!;
+          selectedName.textContent = btn.dataset.name!;
+          selectedId.textContent = btn.dataset.id!;
+          selectedEmail.textContent = btn.dataset.email!;
+          updatePanel.hidden = false;
+          updateMessage.hidden = true;
+        });
+      });
+    } catch {
+      resultsEl.innerHTML = '<p class="text-sm text-red-500">検索に失敗しました。</p>';
+    }
+  }
+
+  updateBtn.addEventListener("click", async () => {
+    const newEmail = newEmailInput.value.trim();
+    if (!newEmail || !currentStudentId) return;
+
+    updateBtn.disabled = true;
+    updateBtn.textContent = "変更中…";
+
+    try {
+      const res = await fetch("/api/admin/students/update-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ student_id: currentStudentId, new_email: newEmail }),
+      });
+      if (!res.ok) throw new Error("update_failed");
+
+      updateMessage.textContent = "メールアドレスを変更しました。";
+      updateMessage.className = "text-sm mt-4 text-green-600";
+      updateMessage.hidden = false;
+      selectedEmail.textContent = newEmail;
+      newEmailInput.value = "";
+    } catch {
+      updateMessage.textContent = "変更に失敗しました。もう一度お試しください。";
+      updateMessage.className = "text-sm mt-4 text-red-600";
+      updateMessage.hidden = false;
+    } finally {
+      updateBtn.disabled = false;
+      updateBtn.textContent = "変更する";
+    }
+  });
+</script>
