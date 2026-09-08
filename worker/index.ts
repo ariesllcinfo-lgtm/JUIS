@@ -206,13 +206,110 @@ async function handlePurchase(request: Request, env: Env): Promise<Response> {
   return json({ ok: true }, 200);
 }
 
+// ---- 学生アカウント登録（/students/register/） ----
+
+const FACULTY_CODES: Record<string, string> = {
+  情報法経学部: "LE",
+  社会福祉学部: "WF",
+  知的財産商学部: "IP",
+  コミュニケーション保障学部: "CA",
+  システム農学部: "AG",
+  "College of Design": "DS",
+};
+
+async function handleProfile(request: Request, env: Env): Promise<Response> {
+  const email = getAccessEmail(request);
+  if (!email) {
+    return json({ error: "not_authenticated" }, 401);
+  }
+
+  const profile = await env.DB.prepare(
+    `SELECT email, name, faculty, enrollment_year, student_id
+     FROM students
+     WHERE email = ?`
+  )
+    .bind(email)
+    .first();
+
+  if (!profile) {
+    return json({ error: "not_registered" }, 404);
+  }
+
+  return json(profile, 200);
+}
+
+interface RegisterBody {
+  name?: string;
+  faculty?: string;
+  enrollment_year?: number;
+}
+
+async function handleRegister(request: Request, env: Env): Promise<Response> {
+  const email = getAccessEmail(request);
+  if (!email) {
+    return json({ error: "not_authenticated" }, 401);
+  }
+
+  const existing = await env.DB.prepare(
+    "SELECT email FROM students WHERE email = ?"
+  )
+    .bind(email)
+    .first();
+  if (existing) {
+    return json({ error: "already_registered" }, 409);
+  }
+
+  let body: RegisterBody;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "invalid_json" }, 400);
+  }
+
+  const name = body.name?.trim();
+  const faculty = body.faculty?.trim();
+  const enrollmentYear = body.enrollment_year;
+  const facultyCode = faculty ? FACULTY_CODES[faculty] : undefined;
+
+  if (!name || !faculty || !facultyCode || !enrollmentYear) {
+    return json({ error: "invalid_input" }, 400);
+  }
+
+  // 学籍番号を「入学年度下2桁 + 学部コード + 連番4桁」で自動採番する
+  const yearSuffix = String(enrollmentYear % 100).padStart(2, "0");
+  const countRow = await env.DB.prepare(
+    `SELECT COUNT(*) AS count FROM students
+     WHERE faculty = ? AND enrollment_year = ?`
+  )
+    .bind(faculty, enrollmentYear)
+    .first<{ count: number }>();
+  const sequence = String((countRow?.count ?? 0) + 1).padStart(4, "0");
+  const studentId = `${yearSuffix}${facultyCode}${sequence}`;
+
+  try {
+    await env.DB.prepare(
+      `INSERT INTO students (email, name, faculty, enrollment_year, student_id)
+       VALUES (?, ?, ?, ?, ?)`
+    )
+      .bind(email, name, faculty, enrollmentYear, studentId)
+      .run();
+  } catch (err) {
+    return json({ error: "db_write_failed" }, 500);
+  }
+
+  return json({ email, name, faculty, enrollment_year: enrollmentYear, student_id: studentId }, 200);
+}
+
 // ---- 掲示板（/students/board/） ----
 
 async function handleBoardList(_request: Request, env: Env): Promise<Response> {
   const posts = await env.DB.prepare(
-    `SELECT id, student_email, title, body, created_at
+    `SELECT board_posts.id, board_posts.title, board_posts.body, board_posts.created_at,
+            board_posts.student_email,
+            COALESCE(students.name, board_posts.student_email) AS display_name
      FROM board_posts
-     ORDER BY created_at DESC
+     LEFT JOIN students ON students.email = board_posts.student_email
+     ORDER BY board_posts.created_at DESC
      LIMIT 50`
   ).all();
 
@@ -265,6 +362,8 @@ const routes: Record<string, Partial<Record<string, Handler>>> = {
   "/api/submissions": { POST: handleSubmission },
   "/api/admin/summary": { GET: handleAdminSummary },
   "/api/students/me": { GET: handleStudentMe },
+  "/api/students/profile": { GET: handleProfile },
+  "/api/students/register": { POST: handleRegister },
   "/api/students/purchase": { POST: handlePurchase },
   "/api/students/board": { GET: handleBoardList, POST: handleBoardPost },
 };
