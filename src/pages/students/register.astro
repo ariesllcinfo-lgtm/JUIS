@@ -1,0 +1,131 @@
+---
+// src/pages/students/register.astro
+// StudentLayoutは使わない（登録チェックのリダイレクトと無限ループするため）。
+import Layout from "../../layouts/Layout.astro";
+
+const faculties = [
+  "情報法経学部",
+  "社会福祉学部",
+  "知的財産商学部",
+  "コミュニケーション保障学部",
+  "システム農学部",
+  "College of Design",
+];
+---
+
+<Layout title="学生アカウント登録" description="城北情報大学の学生ポータル利用登録です。">
+  <section class="bg-light py-16">
+    <div class="max-w-md mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="bg-white rounded-xl shadow-md p-8">
+        <h1 class="text-2xl font-serif font-bold text-primary mb-2">学生アカウント登録</h1>
+        <p class="text-gray-500 text-sm mb-8">
+          初回のみ、以下の情報を登録してください。学籍番号は自動で発行されます。
+        </p>
+
+        <form id="register-form" class="space-y-5">
+          <div>
+            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">氏名</label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              required
+              class="w-full border border-gray-300 rounded px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary"
+            />
+          </div>
+
+          <div>
+            <label for="faculty" class="block text-sm font-medium text-gray-700 mb-1">学部</label>
+            <select
+              id="faculty"
+              name="faculty"
+              required
+              class="w-full border border-gray-300 rounded px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary"
+            >
+              <option value="">選択してください</option>
+              {faculties.map((f) => <option value={f}>{f}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label for="enrollment_year" class="block text-sm font-medium text-gray-700 mb-1">入学年度</label>
+            <select
+              id="enrollment_year"
+              name="enrollment_year"
+              required
+              class="w-full border border-gray-300 rounded px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary"
+            >
+              <option value="">選択してください</option>
+              <option value="2026">2026年度</option>
+              <option value="2025">2025年度</option>
+              <option value="2024">2024年度</option>
+              <option value="2023">2023年度</option>
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            id="register-submit"
+            class="w-full bg-primary hover:bg-blue-800 text-white font-bold py-3 px-4 rounded transition duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            登録する
+          </button>
+          <p id="register-error" role="alert" hidden class="text-sm text-red-600"></p>
+        </form>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  const form = document.getElementById("register-form") as HTMLFormElement;
+  const submitBtn = document.getElementById("register-submit") as HTMLButtonElement;
+  const errorEl = document.getElementById("register-error")!;
+
+  // すでに登録済みなら、登録画面をスキップしてポータルへ
+  (async () => {
+    try {
+      const res = await fetch("/api/students/profile");
+      if (res.ok) {
+        window.location.href = "/students/";
+      }
+    } catch {
+      // 何もしない（未登録として登録フォームを表示する）
+    }
+  })();
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    errorEl.hidden = true;
+
+    const data = new FormData(form);
+    const name = String(data.get("name") ?? "").trim();
+    const faculty = String(data.get("faculty") ?? "");
+    const enrollmentYear = Number(data.get("enrollment_year"));
+
+    if (!name || !faculty || !enrollmentYear) {
+      errorEl.textContent = "すべての項目を入力してください。";
+      errorEl.hidden = false;
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "登録中…";
+
+    try {
+      const res = await fetch("/api/students/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, faculty, enrollment_year: enrollmentYear }),
+      });
+      if (!res.ok) throw new Error("register_failed");
+
+      window.location.href = "/students/";
+    } catch {
+      errorEl.textContent = "登録に失敗しました。もう一度お試しください。";
+      errorEl.hidden = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = "登録する";
+    }
+  });
+</script>
