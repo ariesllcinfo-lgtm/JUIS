@@ -1,0 +1,37 @@
+---
+// src/pages/career.astro
+import Layout from "../layouts/Layout.astro";
+import { createClient } from "microcms-js-sdk";
+
+const client = createClient({
+  serviceDomain: import.meta.env.MICROCMS_SERVICE_DOMAIN,
+  apiKey: import.meta.env.MICROCMS_API_KEY,
+});
+
+let careerItems = [];
+try {
+  const res = await client.get({
+    endpoint: "articles",
+    queries: { limit: 100 },
+  });
+  careerItems = res.contents.filter((a) => a.type?.includes("就職"));
+} catch (error) {
+  console.error("articlesの取得に失敗しました", error);
+}
+---
+
+<Layout title="就職・キャリア支援" description="城北情報大学の就職・キャリア支援情報です。業界地図や業界研究などを掲載しています。">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+  <h1 class="text-3xl font-serif font-bold text-primary mb-4 border-b pb-4">就職・キャリア支援</h1>
+  <p class="text-gray-600 mb-10">業界地図や業界研究など、進路選びに役立つ情報を掲載しています。</p>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+    {careerItems.map((item) => (
+      <a href={`/articles/${item.id}/`} class="block bg-white rounded-lg shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+        <h2 class="text-lg font-bold text-gray-900">{item.title}</h2>
+      </a>
+    ))}
+    {careerItems.length === 0 && <p class="text-gray-500 col-span-full">準備中です。</p>}
+  </div>
+</div>
+</Layout>
