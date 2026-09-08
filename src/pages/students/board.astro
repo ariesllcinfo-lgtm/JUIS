@@ -49,6 +49,7 @@ import StudentLayout from "../../layouts/StudentLayout.astro";
   interface Post {
     id: number;
     student_email: string;
+    display_name: string;
     title: string;
     body: string;
     created_at: string;
@@ -89,7 +90,7 @@ import StudentLayout from "../../layouts/StudentLayout.astro";
                 <span class="text-xs text-gray-400">${formatDate(p.created_at)}</span>
               </div>
               <p class="text-gray-700 whitespace-pre-wrap mb-3">${escapeHtml(p.body)}</p>
-              <p class="text-xs text-gray-400">${escapeHtml(p.student_email)}</p>
+              <p class="text-xs text-gray-400">${escapeHtml(p.display_name)}</p>
             </div>
           `
         )
