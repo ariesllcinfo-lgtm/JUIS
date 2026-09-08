@@ -1,0 +1,90 @@
+---
+// src/pages/academics/syllabus.astro
+import Layout from "../../layouts/Layout.astro";
+import { createClient } from "microcms-js-sdk";
+
+const client = createClient({
+  serviceDomain: import.meta.env.MICROCMS_SERVICE_DOMAIN,
+  apiKey: import.meta.env.MICROCMS_API_KEY,
+});
+
+let syllabusItems = [];
+try {
+  const res = await client.get({
+    endpoint: "articles",
+    queries: { limit: 100 },
+  });
+  syllabusItems = res.contents.filter((a) => a.type?.includes("シラバス"));
+} catch (error) {
+  console.error("articlesの取得に失敗しました", error);
+}
+
+const faculties = [
+  "情報法経学部",
+  "社会福祉学部",
+  "知的財産商学部",
+  "コミュニケーション保障学部",
+  "システム農学部",
+  "College of Design",
+];
+---
+
+<Layout title="シラバス" description="城北情報大学のシラバス（授業計画）一覧です。">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+  <h1 class="text-3xl font-serif font-bold text-primary mb-10 border-b pb-4">シラバス</h1>
+
+  <div class="flex flex-wrap gap-2 mb-10" id="faculty-filters">
+    <button type="button" class="filter-btn active px-4 py-1.5 rounded-full text-sm font-medium" data-faculty="all">
+      すべて
+    </button>
+    {faculties.map((f) => (
+      <button type="button" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium" data-faculty={f}>
+        {f}
+      </button>
+    ))}
+  </div>
+
+  <div class="divide-y divide-gray-200" id="syllabus-list">
+    {syllabusItems.map((item) => (
+      <a
+        href={`/articles/${item.id}/`}
+        class="syllabus-row block py-5 hover:bg-gray-50 transition -mx-4 px-4"
+        data-faculty={item.faculty || ""}
+      >
+        <p class="text-xs text-gray-400 mb-1">{item.faculty}{item.instructor ? ` ／ ${item.instructor}` : ""}</p>
+        <h2 class="text-lg font-bold text-gray-900">{item.title}</h2>
+      </a>
+    ))}
+    {syllabusItems.length === 0 && <p class="text-gray-500 py-10">現在公開中のシラバスはありません。</p>}
+  </div>
+</div>
+</Layout>
+
+<style>
+  .filter-btn {
+    background: #f3f4f6;
+    color: #4b5563;
+  }
+  .filter-btn.active {
+    background: #1e3a8a;
+    color: #fff;
+  }
+</style>
+
+<script>
+  const buttons = document.querySelectorAll<HTMLButtonElement>(".filter-btn");
+  const rows = document.querySelectorAll<HTMLElement>(".syllabus-row");
+
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      buttons.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      const faculty = btn.dataset.faculty;
+      rows.forEach((row) => {
+        row.style.display =
+          faculty === "all" || row.dataset.faculty === faculty ? "" : "none";
+      });
+    });
+  });
+</script>
