@@ -8,13 +8,15 @@ export async function getStaticPaths() {
     apiKey: import.meta.env.MICROCMS_API_KEY,
   });
   const { contents } = await client.get({
-    endpoint: "blogs",
+    endpoint: "articles",
     queries: { limit: 100 },
   });
-  return contents.map((item) => ({
-    params: { id: item.id },
-    props: { item },
-  }));
+  return contents
+    .filter((item) => item.type?.includes("Topics"))
+    .map((item) => ({
+      params: { id: item.id },
+      props: { item },
+    }));
 }
 
 const { item } = Astro.props;
@@ -31,11 +33,8 @@ function formatDate(dateStr) {
 {item.eyecatch && (
 <img src={item.eyecatch.url} alt={item.title} class="w-full h-auto rounded-lg mb-10 object-cover" />
 )}
-<div class="flex items-center gap-3 mb-6 flex-wrap">
 <time class="text-sm text-gray-500 font-medium">{formatDate(item.publishedAt)}</time>
-{item.category && <span class="inline-block px-2 py-1 bg-green-100 text-green-800 text-xs rounded">{item.category.name}</span>}
-</div>
-<h1 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mb-10 leading-tight">{item.title}</h1>
+<h1 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mt-4 mb-10 leading-tight">{item.title}</h1>
 <div class="rich-content" set:html={item.content} />
 <a href="/topics/" class="inline-block mt-16 text-sm font-medium text-secondary hover:underline">← Topics一覧に戻る</a>
 </div>
