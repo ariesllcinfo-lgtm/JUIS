@@ -223,7 +223,7 @@ async function handleProfile(request: Request, env: Env): Promise<Response> {
     return json({ error: "not_authenticated" }, 401);
   }
 
-  const profile = await env.DB.prepare(
+  let profile = await env.DB.prepare(
     `SELECT email, name, faculty, enrollment_year, student_id
      FROM students
      WHERE email = ?`
@@ -232,10 +232,97 @@ async function handleProfile(request: Request, env: Env): Promise<Response> {
     .first();
 
   if (!profile) {
+    // このメールアドレス宛の変更申請が来ていないか確認する。
+    // Accessでこのメールにログインできた時点で「本人が新しいメールも
+    // 持っている」ことは証明済みなので、そのまま引き継ぎを実行する。
+    const pending = await env.DB.prepare(
+      `SELECT old_email FROM email_change_requests WHERE new_email = ?`
+    )
+      .bind(email)
+      .first<{ old_email: string }>();
+
+    if (pending) {
+      await env.DB.batch([
+        env.DB.prepare("UPDATE students SET email = ? WHERE email = ?").bind(
+          email,
+          pending.old_email
+        ),
+        env.DB.prepare(
+          "UPDATE board_posts SET student_email = ? WHERE student_email = ?"
+        ).bind(email, pending.old_email),
+        env.DB.prepare(
+          "UPDATE book_orders SET student_email = ? WHERE student_email = ?"
+        ).bind(email, pending.old_email),
+        env.DB.prepare(
+          "DELETE FROM email_change_requests WHERE old_email = ?"
+        ).bind(pending.old_email),
+      ]);
+
+      profile = await env.DB.prepare(
+        `SELECT email, name, faculty, enrollment_year, student_id
+         FROM students
+         WHERE email = ?`
+      )
+        .bind(email)
+        .first();
+    }
+  }
+
+  if (!profile) {
     return json({ error: "not_registered" }, 404);
   }
 
   return json(profile, 200);
+}
+
+interface EmailChangeBody {
+  new_email?: string;
+}
+
+async function handleRequestEmailChange(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const email = getAccessEmail(request);
+  if (!email) {
+    return json({ error: "not_authenticated" }, 401);
+  }
+
+  const student = await env.DB.prepare(
+    "SELECT email FROM students WHERE email = ?"
+  )
+    .bind(email)
+    .first();
+  if (!student) {
+    return json({ error: "not_registered" }, 404);
+  }
+
+  let body: EmailChangeBody;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "invalid_json" }, 400);
+  }
+
+  const newEmail = body.new_email?.trim().toLowerCase();
+  if (!newEmail || !newEmail.includes("@")) {
+    return json({ error: "valid_new_email_required" }, 400);
+  }
+
+  try {
+    // 同じメールで再申請した場合に備えて置き換える
+    await env.DB.prepare(
+      `INSERT INTO email_change_requests (old_email, new_email)
+       VALUES (?, ?)
+       ON CONFLICT(old_email) DO UPDATE SET new_email = excluded.new_email, requested_at = datetime('now')`
+    )
+      .bind(email, newEmail)
+      .run();
+  } catch (err) {
+    return json({ error: "db_write_failed" }, 500);
+  }
+
+  return json({ ok: true }, 200);
 }
 
 interface RegisterBody {
@@ -354,6 +441,90 @@ async function handleBoardPost(request: Request, env: Env): Promise<Response> {
   return json({ ok: true }, 200);
 }
 
+// ---- 管理者によるメールアドレス変更（/admin/students/） ----
+
+async function handleAdminStudentSearch(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const url = new URL(request.url);
+  const q = url.searchParams.get("q")?.trim();
+  if (!q) {
+    return json({ students: [] }, 200);
+  }
+
+  const results = await env.DB.prepare(
+    `SELECT email, name, faculty, student_id
+     FROM students
+     WHERE student_id LIKE ? OR name LIKE ?
+     LIMIT 20`
+  )
+    .bind(`%${q}%`, `%${q}%`)
+    .all();
+
+  return json({ students: results.results }, 200);
+}
+
+interface AdminUpdateEmailBody {
+  student_id?: string;
+  new_email?: string;
+}
+
+async function handleAdminUpdateEmail(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  let body: AdminUpdateEmailBody;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "invalid_json" }, 400);
+  }
+
+  const studentId = body.student_id?.trim();
+  const newEmail = body.new_email?.trim().toLowerCase();
+  if (!studentId || !newEmail || !newEmail.includes("@")) {
+    return json({ error: "student_id_and_valid_email_required" }, 400);
+  }
+
+  const student = await env.DB.prepare(
+    "SELECT email FROM students WHERE student_id = ?"
+  )
+    .bind(studentId)
+    .first<{ email: string }>();
+
+  if (!student) {
+    return json({ error: "student_not_found" }, 404);
+  }
+
+  const oldEmail = student.email;
+
+  try {
+    await env.DB.batch([
+      env.DB.prepare("UPDATE students SET email = ? WHERE student_id = ?").bind(
+        newEmail,
+        studentId
+      ),
+      env.DB.prepare(
+        "UPDATE board_posts SET student_email = ? WHERE student_email = ?"
+      ).bind(newEmail, oldEmail),
+      env.DB.prepare(
+        "UPDATE book_orders SET student_email = ? WHERE student_email = ?"
+      ).bind(newEmail, oldEmail),
+      env.DB.prepare("DELETE FROM email_change_requests WHERE old_email = ?").bind(
+        oldEmail
+      ),
+      env.DB.prepare("DELETE FROM email_change_requests WHERE new_email = ?").bind(
+        newEmail
+      ),
+    ]);
+  } catch (err) {
+    return json({ error: "db_write_failed" }, 500);
+  }
+
+  return json({ ok: true, email: newEmail }, 200);
+}
+
 // ---- ルーティング表 ----
 // 新しいエンドポイントは、ここに1行足すだけで使えるようになります。
 // 例: "/api/students/progress": { GET: handleStudentProgress },
@@ -364,6 +535,9 @@ const routes: Record<string, Partial<Record<string, Handler>>> = {
   "/api/students/me": { GET: handleStudentMe },
   "/api/students/profile": { GET: handleProfile },
   "/api/students/register": { POST: handleRegister },
+  "/api/students/request-email-change": { POST: handleRequestEmailChange },
+  "/api/admin/students/search": { GET: handleAdminStudentSearch },
+  "/api/admin/students/update-email": { POST: handleAdminUpdateEmail },
   "/api/students/purchase": { POST: handlePurchase },
   "/api/students/board": { GET: handleBoardList, POST: handleBoardPost },
 };
