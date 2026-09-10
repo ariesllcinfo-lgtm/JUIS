@@ -11,10 +11,12 @@ export async function getStaticPaths() {
     endpoint: "articles",
     queries: { limit: 100 },
   });
-  // News・Topicsは /news/ と /topics/ 側で専用ページを持つので、
-  // ここでは対象から除外する（同じ内容が2つのURLで重複しないように）。
+  // News・Topicsは /news/ と /topics/ 側で、学長の言葉・沿革は /about/ 側で
+  // それぞれ専用の表示を持つので、ここでは対象から除外する
+  // （同じ内容が複数のURLで重複しないように）。
+  const excludedTypes = ["News", "Topics", "学長の言葉", "沿革"];
   return contents
-    .filter((item) => !item.type?.includes("News") && !item.type?.includes("Topics"))
+    .filter((item) => !excludedTypes.some((t) => item.type?.includes(t)))
     .map((item) => ({
       params: { id: item.id },
       props: { item },
