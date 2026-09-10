@@ -2,6 +2,7 @@
 // src/pages/career.astro
 import Layout from "../layouts/Layout.astro";
 import { createClient } from "microcms-js-sdk";
+import { getArticleUrl } from "../lib/getArticleUrl";
 
 const client = createClient({
   serviceDomain: import.meta.env.MICROCMS_SERVICE_DOMAIN,
@@ -27,7 +28,7 @@ try {
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
     {careerItems.map((item) => (
-      <a href={`/articles/${item.id}/`} class="block bg-white rounded-lg shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <a href={getArticleUrl(item)} class="block bg-white rounded-lg shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
         <h2 class="text-lg font-bold text-gray-900">{item.title}</h2>
       </a>
     ))}
