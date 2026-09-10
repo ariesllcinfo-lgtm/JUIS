@@ -2,6 +2,7 @@
 // src/pages/academics/syllabus.astro
 import Layout from "../../layouts/Layout.astro";
 import { createClient } from "microcms-js-sdk";
+import { getArticleUrl } from "../../lib/getArticleUrl";
 
 const client = createClient({
   serviceDomain: import.meta.env.MICROCMS_SERVICE_DOMAIN,
@@ -47,7 +48,7 @@ const faculties = [
   <div class="divide-y divide-gray-200" id="syllabus-list">
     {syllabusItems.map((item) => (
       <a
-        href={`/articles/${item.id}/`}
+        href={getArticleUrl(item)}
         class="syllabus-row block py-5 hover:bg-gray-50 transition -mx-4 px-4"
         data-faculty={item.faculty || ""}
       >
