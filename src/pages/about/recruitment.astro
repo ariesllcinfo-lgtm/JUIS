@@ -2,6 +2,7 @@
 // src/pages/about/recruitment.astro
 import Layout from "../../layouts/Layout.astro";
 import { createClient } from "microcms-js-sdk";
+import { getArticleUrl } from "../../lib/getArticleUrl";
 
 const client = createClient({
   serviceDomain: import.meta.env.MICROCMS_SERVICE_DOMAIN,
@@ -35,7 +36,7 @@ function isExpired(deadline) {
   <div class="divide-y divide-gray-200">
     {jobs.map((job) => (
       <a
-        href={`/articles/${job.id}/`}
+        href={getArticleUrl(job)}
         class={`block py-6 hover:bg-gray-50 transition -mx-4 px-4 ${isExpired(job.deadline) ? "opacity-50" : ""}`}
       >
         <div class="flex justify-between items-baseline flex-wrap gap-2">
