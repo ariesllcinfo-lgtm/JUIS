@@ -1,5 +1,11 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { createClient } from "microcms-js-sdk";
+
+const client = createClient({
+  serviceDomain: import.meta.env.MICROCMS_SERVICE_DOMAIN,
+  apiKey: import.meta.env.MICROCMS_API_KEY,
+});
 
 const pillars = [
   {
@@ -64,13 +70,29 @@ const pillars = [
   },
 ];
 
-// 沿革は仮のプレースホルダーです。実際の年表が決まったら差し替えてください。
-const history = [
-  { date: "20XX年4月", text: "城北情報大学 開学（プレースホルダー：実際の年表に差し替えてください）" },
-  { date: "20XX年4月", text: "システム農学部 開設" },
-  { date: "20XX年4月", text: "情報法経学部 開設" },
-  { date: "20XX年X月", text: "ボーダーレス・ラボ（共創型コワーキングスペース）開設" },
-];
+// 学長の言葉・沿革は articles API（type: 学長の言葉 / 沿革）から取得する
+let presidentMessage = null;
+let historyItems = [];
+try {
+  const res = await client.get({
+    endpoint: "articles",
+    queries: { limit: 100 },
+  });
+  presidentMessage =
+    res.contents.find((a) => a.type?.includes("学長の言葉")) ?? null;
+  historyItems = res.contents
+    .filter((a) => a.type?.includes("沿革"))
+    .sort((a, b) => (a.event_date ?? "").localeCompare(b.event_date ?? ""));
+} catch (error) {
+  console.error("articlesの取得に失敗しました", error);
+}
+
+function formatEventDate(dateStr) {
+  // "2026-04" のような YYYY-MM 形式を「2026年4月」に変換する
+  const [y, m] = (dateStr ?? "").split("-");
+  if (!y || !m) return dateStr ?? "";
+  return `${y}年${Number(m)}月`;
+}
 ---
 
 <Layout title="大学紹介" description="学長メッセージ・教育方針・沿革をご紹介します。">
@@ -79,14 +101,11 @@ const history = [
   <!-- 学長の言葉 -->
   <section class="mb-24">
     <h1 class="text-3xl font-serif font-bold text-primary mb-10 border-b pb-4">学長の言葉</h1>
-    <p class="text-2xl md:text-3xl font-serif font-bold text-gray-900 mb-10 leading-relaxed">「真面目に、世界と遊ぼう。」</p>
-    <div class="space-y-6 text-gray-700 leading-loose">
-      <p>これまでの社会には、誰もが疑わない「正解の枠」がありました。決められたレールを走り、既存のルールに適応することが優秀さとされてきました。しかし、テクノロジーが指数関数的に進化する現代において、その「枠」はもはや私たちを守るものではなく、可能性を制限する檻になりつつあります。</p>
-      <p>城北情報大学は、皆さんに問いかけます。「その枠に収まったままで、本当に世界を変えられるのか？」と。</p>
-      <p>本学が掲げるスローガンは「J.O.K.E」です。一見、ふざけているように思われるかもしれません。しかし、これこそが私たちが考える最高の知性です。</p>
-      <p>常識を疑い、心からワクワクするプロセスを楽しむこと（Joyful）。あらゆる価値観や多様な人々と境界線なく交わること（Open）。社会をハックするための確かなテクノロジーと知性を身につけること（Knowledge）。そして、失敗を恐れず未踏の領域へと踏み出すこと（Explore）。</p>
-      <p>偉大なイノベーションは、いつだって最初は「まるで冗談（JOKE）のようなアイデア」から生まれました。社会の枠をはみ出し、あなたの無限の可能性をここで育んでください。私たちと一緒に、世界をあっと言わせる「最高のJOKE」を創り上げましょう。</p>
-    </div>
+    {presidentMessage ? (
+      <div class="rich-content text-gray-700 leading-loose" set:html={presidentMessage.content} />
+    ) : (
+      <p class="text-gray-400">準備中です。</p>
+    )}
   </section>
 
   <!-- 教育方針 -->
@@ -115,14 +134,14 @@ const history = [
   <section>
     <h2 class="text-3xl font-serif font-bold text-primary mb-10 border-b pb-4">沿革</h2>
     <div class="relative border-l-2 border-gray-200 ml-2 pl-10 space-y-10">
-      {history.map((h) => (
+      {historyItems.map((h) => (
         <div class="timeline-item relative">
-          <p class="text-sm text-secondary font-bold">{h.date}</p>
-          <p class="text-gray-800 mt-1">{h.text}</p>
+          <p class="text-sm text-secondary font-bold">{formatEventDate(h.event_date)}</p>
+          <p class="text-gray-800 mt-1">{h.title}</p>
         </div>
       ))}
+      {historyItems.length === 0 && <p class="text-gray-400">準備中です。</p>}
     </div>
-    <p class="text-xs text-gray-400 mt-8">※ 沿革は仮の内容です。正式な年表に差し替えてください。</p>
   </section>
 
 </div>
