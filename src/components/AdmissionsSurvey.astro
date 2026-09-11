@@ -213,7 +213,7 @@
 </style>
 
 <script>
-  type FacultyKey = "LE" | "WF" | "IP" | "CA" | "AG" | "DS";
+  type FacultyKey = "LE" | "WF" | "IP" | "CA" | "AG" | "DS" | "PS";
 
   interface Question {
     q: string;
@@ -230,6 +230,7 @@
         { text: "情報格差やユニバーサルデザインの話題", key: "CA" },
         { text: "気候変動と食料生産の関係", key: "AG" },
         { text: "新しい建築やプロダクトデザイン", key: "DS" },
+        { text: "心理学や行動経済学に関する話題", key: "PS" },
       ],
     },
     {
@@ -241,6 +242,7 @@
         { text: "難しい説明のかみ砕き役", key: "CA" },
         { text: "植物やペットの世話の相談", key: "AG" },
         { text: "部屋のレイアウトやコーディネートの相談", key: "DS" },
+        { text: "人の気持ちを分析したり、モヤモヤの整理を手伝うこと", key: "PS" },
       ],
     },
     {
@@ -252,6 +254,7 @@
         { text: "国語・語学", key: "CA" },
         { text: "生物・地学", key: "AG" },
         { text: "美術・技術", key: "DS" },
+        { text: "心理学・倫理", key: "PS" },
       ],
     },
     {
@@ -263,6 +266,7 @@
         { text: "通訳・字幕制作・広報", key: "CA" },
         { text: "農業法人や環境コンサル", key: "AG" },
         { text: "グラフィックや空間のデザイナー", key: "DS" },
+        { text: "カウンセラーや人事・組織開発の仕事", key: "PS" },
       ],
     },
     {
@@ -274,6 +278,7 @@
         { text: "情報をわかりやすく翻訳・要約する", key: "CA" },
         { text: "植物の成長や環境データの記録", key: "AG" },
         { text: "手を動かしてものを作る・描く", key: "DS" },
+        { text: "人の行動や心の動きを観察し、パターンを見つける", key: "PS" },
       ],
     },
     {
@@ -285,6 +290,7 @@
         { text: "誰も取り残さない伝え方", key: "CA" },
         { text: "自然との共生・持続可能性", key: "AG" },
         { text: "美しさ・表現", key: "DS" },
+        { text: "人間理解・共感", key: "PS" },
       ],
     },
   ];
@@ -329,9 +335,15 @@
       desc: "美意識と表現力が武器です。ものづくりや空間・体験のデザインを通じて、才能を発揮できるでしょう。",
       href: "/articles/lcp9_i4umj/",
     },
+    PS: {
+      name: "人間心理学部",
+      color: "#a8456b",
+      desc: "人の心の動きを見つめ、理解しようとする探究心があります。心理学的な視点を通じて、人と組織、社会をより良くする仕事に向いています。",
+      href: "/articles/qwaxfu6s7/",
+    },
   };
 
-  const FACULTY_ORDER: FacultyKey[] = ["LE", "WF", "IP", "CA", "AG", "DS"];
+  const FACULTY_ORDER: FacultyKey[] = ["LE", "WF", "IP", "CA", "AG", "DS", "PS"];
 
   const steps = {
     intro: document.querySelector<HTMLElement>('[data-step="intro"]')!,
@@ -442,6 +454,7 @@
       CA: 0,
       AG: 0,
       DS: 0,
+      PS: 0,
     };
     answers.forEach((a) => {
       tally[a.key] += 1;
