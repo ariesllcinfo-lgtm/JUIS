@@ -11,10 +11,10 @@ export async function getStaticPaths() {
     endpoint: "articles",
     queries: { limit: 100 },
   });
-  // News・Topicsは /news/ と /topics/ 側で、学長の言葉・沿革は /about/ 側で
-  // それぞれ専用の表示を持つので、ここでは対象から除外する
-  // （同じ内容が複数のURLで重複しないように）。
-  const excludedTypes = ["News", "Topics", "学長の言葉", "沿革"];
+  // News・Topicsは /news/ と /topics/ 側で、学長の言葉・沿革は /about/ 側で、
+  // 書籍は /students/books/ 側でそれぞれ専用の表示を持つので、
+  // ここでは対象から除外する（同じ内容が複数のURLで重複しないように）。
+  const excludedTypes = ["News", "Topics", "学長の言葉", "沿革", "書籍"];
   return contents
     .filter((item) => !excludedTypes.some((t) => item.type?.includes(t)))
     .map((item) => ({
@@ -26,8 +26,27 @@ export async function getStaticPaths() {
 const { item } = Astro.props;
 const isSyllabus = item.type?.includes("シラバス");
 const isRecruitment = item.type?.includes("教員募集");
-const backHref = isRecruitment ? "/about/recruitment/" : "/academics/";
-const backLabel = isRecruitment ? "← 教員採用情報に戻る" : "← 学部・大学院に戻る";
+const isInstitute = item.type?.includes("附属機関");
+const isFacultyProfile = item.type?.includes("教員紹介");
+const isPublication = item.type?.includes("出版物");
+const backHref = isRecruitment
+  ? "/about/recruitment/"
+  : isInstitute
+    ? "/institutes/"
+    : isFacultyProfile
+      ? "/faculty/"
+      : isPublication
+        ? "/research/"
+        : "/academics/";
+const backLabel = isRecruitment
+  ? "← 教員採用情報に戻る"
+  : isInstitute
+    ? "← 附属機関一覧に戻る"
+    : isFacultyProfile
+      ? "← 教員紹介一覧に戻る"
+      : isPublication
+        ? "← 教育・研究に戻る"
+        : "← 学部・大学院に戻る";
 ---
 
 <Layout title={item.title} description={item.title}>
@@ -69,6 +88,59 @@ const backLabel = isRecruitment ? "← 教員採用情報に戻る" : "← 学�
       <p class="text-gray-400 text-xs mb-1">応募締切</p>
       <p class="font-bold text-gray-900">{item.deadline || "-"}</p>
     </div>
+  </div>
+)}
+
+{isInstitute && item.established_year && (
+  <div class="bg-white rounded-xl shadow-md p-6 mb-10 text-sm">
+    <p class="text-gray-400 text-xs mb-1">設立</p>
+    <p class="font-bold text-gray-900">{item.established_year}年</p>
+  </div>
+)}
+
+{isFacultyProfile && (
+  <div class="flex flex-col sm:flex-row gap-8 mb-10">
+    {item.eyecatch && (
+      <img src={item.eyecatch.url} alt={item.title} class="w-40 h-40 rounded-lg object-cover flex-shrink-0" />
+    )}
+    <div class="bg-white rounded-xl shadow-md p-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm flex-1">
+      <div>
+        <p class="text-gray-400 text-xs mb-1">学部</p>
+        <p class="font-bold text-gray-900">{item.faculty || "-"}</p>
+      </div>
+      <div>
+        <p class="text-gray-400 text-xs mb-1">役職</p>
+        <p class="font-bold text-gray-900">{item.position || "-"}</p>
+      </div>
+      <div>
+        <p class="text-gray-400 text-xs mb-1">専門分野</p>
+        <p class="font-bold text-gray-900">{item.specialty || "-"}</p>
+      </div>
+    </div>
+  </div>
+)}
+
+{isPublication && (
+  <div class="bg-white rounded-xl shadow-md p-6 mb-10 text-sm">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+      <div>
+        <p class="text-gray-400 text-xs mb-1">著者</p>
+        <p class="font-bold text-gray-900">{item.authors || "-"}</p>
+      </div>
+      <div>
+        <p class="text-gray-400 text-xs mb-1">掲載誌</p>
+        <p class="font-bold text-gray-900">{item.venue || "-"}</p>
+      </div>
+      <div>
+        <p class="text-gray-400 text-xs mb-1">発行年</p>
+        <p class="font-bold text-gray-900">{item.year || "-"}</p>
+      </div>
+    </div>
+    {item.pdf && (
+      <a href={item.pdf.url} class="inline-block text-secondary font-bold hover:underline" target="_blank" rel="noopener">
+        PDFをダウンロード
+      </a>
+    )}
   </div>
 )}
 
