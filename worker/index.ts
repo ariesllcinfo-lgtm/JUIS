@@ -549,6 +549,19 @@ interface CreatorProfile {
   current_rank: string;
 }
 
+// creator_users は juis-db（CREATOR_DB）、students は juis-admissions（DB）と
+// 別データベースなのでJOINはできない。表示名は students.name を正とし、
+// アクセスのたびに食い違いがあれば追随させる（未登録→登録、氏名変更にも対応）。
+async function resolveRegisteredName(
+  email: string,
+  env: Env
+): Promise<string | null> {
+  const student = await env.DB.prepare(`SELECT name FROM students WHERE email = ?`)
+    .bind(email)
+    .first<{ name: string }>();
+  return student?.name ?? null;
+}
+
 async function ensureCreatorUser(email: string, env: Env): Promise<CreatorProfile> {
   let user = await env.CREATOR_DB.prepare(
     `SELECT * FROM creator_users WHERE email = ?`
@@ -557,12 +570,22 @@ async function ensureCreatorUser(email: string, env: Env): Promise<CreatorProfil
     .first<CreatorProfile>();
 
   if (!user) {
+    const registeredName = await resolveRegisteredName(email, env);
     user = await env.CREATOR_DB.prepare(
       `INSERT INTO creator_users (email, display_name, user_type, current_rank)
        VALUES (?, ?, 'student', '見習い') RETURNING *`
     )
-      .bind(email, email.split("@")[0])
+      .bind(email, registeredName ?? email.split("@")[0])
       .first<CreatorProfile>();
+  } else {
+    const registeredName = await resolveRegisteredName(email, env);
+    if (registeredName && registeredName !== user.display_name) {
+      user = await env.CREATOR_DB.prepare(
+        `UPDATE creator_users SET display_name = ? WHERE id = ? RETURNING *`
+      )
+        .bind(registeredName, user.id)
+        .first<CreatorProfile>();
+    }
   }
 
   return user!;
