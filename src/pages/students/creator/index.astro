@@ -84,7 +84,42 @@ import StudentLayout from "../../../layouts/StudentLayout.astro";
       <p id="cite-error" role="alert" hidden class="text-sm text-red-600 mt-2"></p>
       <p id="cite-ok" hidden class="text-sm text-green-600 mt-2">引用を登録しました。</p>
     </div>
-    <div id="works-list">読み込み中…</div>
+
+    <form id="works-filter-form" class="bg-white rounded-xl shadow-md p-4 mb-4 grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
+      <div class="sm:col-span-2">
+        <label for="filter-q" class="block text-xs font-medium text-gray-700 mb-1">キーワード（タイトル）</label>
+        <input type="text" id="filter-q" class="w-full border border-gray-300 rounded px-3 py-2" />
+      </div>
+      <div>
+        <label for="filter-term" class="block text-xs font-medium text-gray-700 mb-1">学期</label>
+        <input type="text" id="filter-term" placeholder="例：2026-前期" class="w-full border border-gray-300 rounded px-3 py-2" />
+      </div>
+      <div>
+        <label for="filter-type" class="block text-xs font-medium text-gray-700 mb-1">種別</label>
+        <input type="text" id="filter-type" placeholder="論文／創作等" class="w-full border border-gray-300 rounded px-3 py-2" />
+      </div>
+      <div>
+        <label for="filter-sort" class="block text-xs font-medium text-gray-700 mb-1">並び順</label>
+        <select id="filter-sort" class="w-full border border-gray-300 rounded px-3 py-2">
+          <option value="new">新着順</option>
+          <option value="cited">被引用数順</option>
+        </select>
+      </div>
+      <button
+        type="submit"
+        class="sm:col-span-5 bg-secondary hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition"
+      >
+        絞り込む
+      </button>
+    </form>
+
+    <div id="works-list"></div>
+    <button
+      type="button" id="works-more" hidden
+      class="mt-4 w-full border border-gray-300 text-gray-600 rounded py-2 hover:bg-gray-50 transition"
+    >
+      もっと見る
+    </button>
   </section>
 
   <!-- 指導関係 -->
@@ -130,6 +165,7 @@ import StudentLayout from "../../../layouts/StudentLayout.astro";
     academic_term: string;
     author_name: string;
     author_rank: string;
+    citation_count: number;
   }
   interface Mentorship {
     id: number;
@@ -162,31 +198,63 @@ import StudentLayout from "../../../layouts/StudentLayout.astro";
     }
   }
 
-  async function loadWorks() {
+  let worksPage = 1;
+
+  function currentFilters() {
+    return {
+      q: (document.getElementById("filter-q") as HTMLInputElement).value.trim(),
+      term: (document.getElementById("filter-term") as HTMLInputElement).value.trim(),
+      type: (document.getElementById("filter-type") as HTMLInputElement).value.trim(),
+      sort: (document.getElementById("filter-sort") as HTMLSelectElement).value,
+    };
+  }
+
+  function buildWorksUrl(page: number): string {
+    const f = currentFilters();
+    const params = new URLSearchParams();
+    if (f.q) params.set("q", f.q);
+    if (f.term) params.set("term", f.term);
+    if (f.type) params.set("type", f.type);
+    params.set("sort", f.sort);
+    params.set("page", String(page));
+    return "/api/students/creator/works?" + params.toString();
+  }
+
+  function renderWorkCard(w: Work): string {
+    return `
+      <div class="bg-white rounded-xl shadow-md p-5 mb-3">
+        <div class="flex justify-between items-baseline flex-wrap gap-2">
+          <h3 class="font-bold text-gray-900">#${w.id} ${escapeHtml(w.title)}</h3>
+          <span class="text-xs text-gray-400">${escapeHtml(w.academic_term)}</span>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">
+          ${escapeHtml(w.author_name)}（${escapeHtml(w.author_rank)}）${w.work_type ? " ／ " + escapeHtml(w.work_type) : ""}
+          ／ 被引用 ${w.citation_count}件
+        </p>
+      </div>
+    `;
+  }
+
+  async function loadWorks(reset = true) {
     const el = document.getElementById("works-list")!;
+    const moreBtn = document.getElementById("works-more") as HTMLButtonElement;
+    if (reset) {
+      worksPage = 1;
+      el.innerHTML = "読み込み中…";
+    }
     try {
-      const res = await fetch("/api/students/creator/works");
+      const res = await fetch(buildWorksUrl(worksPage));
       if (!res.ok) throw new Error("failed");
       const data: { works: Work[] } = await res.json();
-      if (data.works.length === 0) {
-        el.innerHTML = '<p class="text-sm text-gray-400">まだ作品がありません。</p>';
+
+      if (reset) el.innerHTML = "";
+      if (reset && data.works.length === 0) {
+        el.innerHTML = '<p class="text-sm text-gray-400">該当する作品が見つかりません。</p>';
+        moreBtn.hidden = true;
         return;
       }
-      el.innerHTML = data.works
-        .map(
-          (w) => `
-            <div class="bg-white rounded-xl shadow-md p-5 mb-3">
-              <div class="flex justify-between items-baseline flex-wrap gap-2">
-                <h3 class="font-bold text-gray-900">#${w.id} ${escapeHtml(w.title)}</h3>
-                <span class="text-xs text-gray-400">${escapeHtml(w.academic_term)}</span>
-              </div>
-              <p class="text-xs text-gray-500 mt-1">
-                ${escapeHtml(w.author_name)}（${escapeHtml(w.author_rank)}）${w.work_type ? " ／ " + escapeHtml(w.work_type) : ""}
-              </p>
-            </div>
-          `
-        )
-        .join("");
+      el.insertAdjacentHTML("beforeend", data.works.map(renderWorkCard).join(""));
+      moreBtn.hidden = data.works.length < 20;
     } catch {
       el.innerHTML = '<p class="text-sm text-red-500">作品一覧の取得に失敗しました。</p>';
     }
@@ -322,6 +390,18 @@ import StudentLayout from "../../../layouts/StudentLayout.astro";
       mentorshipError.textContent = "申請に失敗しました。教員のメールアドレスが正しいか確認してください。";
       mentorshipError.hidden = false;
     }
+  });
+
+  const worksFilterForm = document.getElementById("works-filter-form") as HTMLFormElement;
+  worksFilterForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    loadWorks(true);
+  });
+
+  const worksMoreBtn = document.getElementById("works-more") as HTMLButtonElement;
+  worksMoreBtn.addEventListener("click", () => {
+    worksPage += 1;
+    loadWorks(false);
   });
 
   (async () => {
