@@ -31,10 +31,10 @@ import StudentLayout from "../../../layouts/StudentLayout.astro";
         </div>
         <div>
           <label for="work-term" class="block text-sm font-medium text-gray-700 mb-1">学期</label>
-          <input
-            type="text" id="work-term" required placeholder="例：2026-前期"
-            class="w-full border border-gray-300 rounded px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary"
-          />
+          <select
+            id="work-term" required
+            class="term-select w-full border border-gray-300 rounded px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary"
+          ></select>
         </div>
       </div>
       <div>
@@ -72,7 +72,7 @@ import StudentLayout from "../../../layouts/StudentLayout.astro";
         </div>
         <div>
           <label for="cite-term" class="block text-xs font-medium text-gray-700 mb-1">学期</label>
-          <input type="text" id="cite-term" required placeholder="例：2026-前期" class="w-full border border-gray-300 rounded px-3 py-2" />
+          <select id="cite-term" required class="term-select w-full border border-gray-300 rounded px-3 py-2"></select>
         </div>
         <button
           type="submit" id="cite-submit"
@@ -92,7 +92,7 @@ import StudentLayout from "../../../layouts/StudentLayout.astro";
       </div>
       <div>
         <label for="filter-term" class="block text-xs font-medium text-gray-700 mb-1">学期</label>
-        <input type="text" id="filter-term" placeholder="例：2026-前期" class="w-full border border-gray-300 rounded px-3 py-2" />
+        <select id="filter-term" class="w-full border border-gray-300 rounded px-3 py-2"></select>
       </div>
       <div>
         <label for="filter-type" class="block text-xs font-medium text-gray-700 mb-1">種別</label>
@@ -136,7 +136,7 @@ import StudentLayout from "../../../layouts/StudentLayout.astro";
         </div>
         <div>
           <label for="mentorship-term" class="block text-xs font-medium text-gray-700 mb-1">学期</label>
-          <input type="text" id="mentorship-term" required placeholder="例：2026-前期" class="w-full border border-gray-300 rounded px-3 py-2" />
+          <select id="mentorship-term" required class="term-select w-full border border-gray-300 rounded px-3 py-2"></select>
         </div>
       </form>
       <button
@@ -184,6 +184,44 @@ import StudentLayout from "../../../layouts/StudentLayout.astro";
     div.textContent = s;
     return div.innerHTML;
   }
+
+  // 4〜9月を前期、10〜3月を後期とする一般的な区分で「今の学期」を判定する
+  function currentAcademicTerm(): string {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    if (month >= 4 && month <= 9) return `${now.getFullYear()}-前期`;
+    if (month >= 10) return `${now.getFullYear()}-後期`;
+    return `${now.getFullYear() - 1}-後期`;
+  }
+
+  // 前後1年ずつ、計6学期分の選択肢を新しい順に生成する
+  function academicTermOptions(): string[] {
+    const year = new Date().getFullYear();
+    const terms: string[] = [];
+    for (let y = year + 1; y >= year - 1; y--) {
+      terms.push(`${y}-後期`);
+      terms.push(`${y}-前期`);
+    }
+    return terms;
+  }
+
+  function populateTermSelects() {
+    const current = currentAcademicTerm();
+    const options = academicTermOptions();
+
+    document.querySelectorAll<HTMLSelectElement>("select.term-select").forEach((sel) => {
+      sel.innerHTML = options
+        .map((t) => `<option value="${t}" ${t === current ? "selected" : ""}>${t}</option>`)
+        .join("");
+    });
+
+    // フィルタ用は「すべて」を選べるようにする（未選択＝絞り込みなし）
+    const filterSel = document.getElementById("filter-term") as HTMLSelectElement;
+    filterSel.innerHTML =
+      '<option value="">すべて</option>' +
+      options.map((t) => `<option value="${t}">${t}</option>`).join("");
+  }
+  populateTermSelects();
 
   async function loadProfile() {
     const el = document.getElementById("profile-line")!;
