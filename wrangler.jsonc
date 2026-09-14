@@ -12,6 +12,11 @@
       "binding": "DB",
       "database_name": "juis-admissions",
       "database_id": "3431b03d-a517-43e8-954c-ae9d8886467b"
+    },
+    {
+      "binding": "CREATOR_DB",
+      "database_name": "juis-db",
+      "database_id": "19a008de-60f3-47ff-90d6-c5c9fcafdec4"
     }
   ]
 }
