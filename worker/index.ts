@@ -13,6 +13,8 @@
 // ルーティングは下の `routes` テーブルにまとめています。
 // 今後エンドポイントが増えても、この表に1行足すだけで済みます。
 
+import { ImageResponse, loadGoogleFont } from "workers-og";
+
 export interface Env {
   DB: D1Database;
   CREATOR_DB: D1Database;
@@ -933,6 +935,182 @@ async function handleAdminCreatorPromote(
   return json(result, 200);
 }
 
+// ---- 学術カード（動的OGP画像）と作品の共有ページ ----
+//
+// SNSでシェアされた際に「作品の格式が正確に伝わるカード」を動的生成する。
+// 実在するDOI（10.xxxx/...形式）を模倣すると実在の論文と誤認されるリスクがあるため、
+// 識別子は独自フォーマット（JUIS-CR-学期-連番）にしている。
+
+interface WorkOgData {
+  id: number;
+  title: string;
+  academic_term: string;
+  author_name: string;
+  author_rank: string;
+  citation_count: number;
+}
+
+async function fetchWorkOgData(env: Env, workId: string): Promise<WorkOgData | null> {
+  const work = await env.CREATOR_DB.prepare(
+    `SELECT w.id, w.title, w.academic_term, u.display_name AS author_name,
+            u.current_rank AS author_rank,
+            (SELECT COUNT(*) FROM citations c WHERE c.cited_work_id = w.id) AS citation_count
+     FROM works w JOIN creator_users u ON w.author_id = u.id
+     WHERE w.id = ?`
+  )
+    .bind(workId)
+    .first<WorkOgData>();
+  return work ?? null;
+}
+
+// 実在のDOI（10.xxxx/...）と混同されないよう、JUIS独自のフォーマットにしている
+function buildJuisIdentifier(work: WorkOgData): string {
+  const [year, half] = work.academic_term.split("-");
+  const code = half === "前期" ? "S" : half === "後期" ? "F" : "X";
+  return `JUIS-CR-${year ?? "0000"}${code}-${String(work.id).padStart(4, "0")}`;
+}
+
+function escapeHtmlForOg(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  let binary = "";
+  const bytes = new Uint8Array(buf);
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function handleWorkOgImage(
+  request: Request,
+  env: Env,
+  workId: string
+): Promise<Response> {
+  const work = await fetchWorkOgData(env, workId);
+  if (!work) return new Response("Not Found", { status: 404 });
+
+  const identifier = buildJuisIdentifier(work);
+  const title = escapeHtmlForOg(work.title);
+  const authorLine = escapeHtmlForOg(`${work.author_name}（${work.author_rank}）`);
+  const metaLine = escapeHtmlForOg(`${work.academic_term} ／ 被引用 ${work.citation_count}件`);
+
+  // Satori自身の画像フェッチはWorkers上では動作しないため、
+  // ロゴはあらかじめ取得してdata URLに変換してから埋め込む。
+  const logoRes = await env.ASSETS.fetch(new URL("/header-logo.png", request.url).toString());
+  const logoDataUrl = `data:image/png;base64,${arrayBufferToBase64(await logoRes.arrayBuffer())}`;
+
+  // フォントはCJKグリフを含む全量を取得すると重いため、
+  // このカードで実際に使う文字だけをtextパラメータで指定してサブセット取得する。
+  const subsetText =
+    work.title + work.author_name + work.author_rank + work.academic_term +
+    identifier + "城北情報大学創作者コミュニティ被引用件（）／";
+
+  const fontData = await loadGoogleFont({
+    family: "Noto Serif JP",
+    weight: 700,
+    text: subsetText,
+  });
+
+  const html = `
+    <div style="display:flex; flex-direction:column; justify-content:space-between; width:1200px; height:630px; padding:64px; background:#f8fafc; font-family:'Noto Serif JP'; border:16px solid #1e3a8a; box-sizing:border-box;">
+      <div style="display:flex; align-items:center; gap:16px;">
+        <img src="${logoDataUrl}" width="56" height="56" />
+        <span style="font-size:22px; color:#1e3a8a; letter-spacing:2px;">城北情報大学 創作者コミュニティ</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:24px;">
+        <div style="display:flex; font-size:52px; font-weight:700; color:#0f172a; line-height:1.35;">${title}</div>
+        <div style="display:flex; font-size:28px; color:#1e3a8a;">${authorLine}</div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; font-size:20px; color:#475569;">
+        <span style="display:flex;">${metaLine}</span>
+        <span style="display:flex; letter-spacing:1px;">${identifier}</span>
+      </div>
+    </div>
+  `;
+
+  return new ImageResponse(html, {
+    width: 1200,
+    height: 630,
+    fonts: [{ name: "Noto Serif JP", data: fontData, weight: 700, style: "normal" }],
+  });
+}
+
+async function handleWorkSharePage(
+  request: Request,
+  env: Env,
+  workId: string
+): Promise<Response> {
+  const work = await fetchWorkOgData(env, workId);
+  if (!work) return env.ASSETS.fetch(request);
+
+  const identifier = buildJuisIdentifier(work);
+  const ogImageUrl = new URL(`/api/og/works/${work.id}.png`, request.url).toString();
+  const pageUrl = new URL(`/students/creator/works/${work.id}/`, request.url).toString();
+  const title = escapeHtmlForOg(work.title);
+  const authorLine = escapeHtmlForOg(`${work.author_name}（${work.author_rank}）`);
+
+  const html = `<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>${title} | 城北情報大学 創作者コミュニティ</title>
+<meta name="description" content="${authorLine}による作品「${title}」" />
+<link rel="canonical" href="${pageUrl}" />
+
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="城北情報大学" />
+<meta property="og:title" content="${title}" />
+<meta property="og:description" content="${authorLine}による作品" />
+<meta property="og:url" content="${pageUrl}" />
+<meta property="og:image" content="${ogImageUrl}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:locale" content="ja_JP" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="${title}" />
+<meta name="twitter:description" content="${authorLine}による作品" />
+<meta name="twitter:image" content="${ogImageUrl}" />
+
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700;900&display=swap" rel="stylesheet" />
+<style>
+  body { margin:0; font-family:'Noto Serif JP', serif; background:#f8fafc; color:#0f172a; display:flex; align-items:center; justify-content:center; min-height:100vh; }
+  .card { background:#fff; border-radius:16px; box-shadow:0 10px 30px rgba(15,23,42,0.1); padding:48px; max-width:600px; width:90%; }
+  .badge { font-size:13px; color:#1e3a8a; letter-spacing:1px; margin-bottom:16px; }
+  h1 { font-size:28px; margin:0 0 16px; color:#0f172a; }
+  .meta { color:#475569; font-size:14px; margin-bottom:8px; }
+  .identifier { color:#94a3b8; font-size:12px; letter-spacing:1px; margin-top:24px; }
+  a.cta { display:inline-block; margin-top:24px; background:#1e3a8a; color:#fff; text-decoration:none; padding:10px 24px; border-radius:9999px; font-size:14px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">城北情報大学 創作者コミュニティ</div>
+    <h1>${title}</h1>
+    <div class="meta">${authorLine}</div>
+    <div class="meta">${escapeHtmlForOg(work.academic_term)} ／ 被引用 ${work.citation_count}件</div>
+    <div class="identifier">${identifier}</div>
+    <a class="cta" href="/students/creator/">創作者コミュニティを見る →</a>
+  </div>
+</body>
+</html>`;
+
+  return new Response(html, {
+    headers: { "Content-Type": "text/html; charset=UTF-8" },
+  });
+}
+
 // ---- ルーティング表 ----
 // 新しいエンドポイントは、ここに1行足すだけで使えるようになります。
 // 例: "/api/students/progress": { GET: handleStudentProgress },
@@ -967,6 +1145,8 @@ const routes: Record<string, Partial<Record<string, Handler>>> = {
 // 上の静的ルート表では表現できないため、ここで個別にマッチさせる。
 const mentorshipConfirmPattern =
   /^\/api\/students\/creator\/mentorships\/(\d+)\/confirm$/;
+const workOgImagePattern = /^\/api\/og\/works\/(\d+)\.png$/;
+const workSharePagePattern = /^\/students\/creator\/works\/(\d+)\/?$/;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -975,6 +1155,16 @@ export default {
     const confirmMatch = url.pathname.match(mentorshipConfirmPattern);
     if (confirmMatch && request.method === "PATCH") {
       return handleCreatorMentorshipConfirm(request, env, confirmMatch[1]);
+    }
+
+    const ogMatch = url.pathname.match(workOgImagePattern);
+    if (ogMatch && request.method === "GET") {
+      return handleWorkOgImage(request, env, ogMatch[1]);
+    }
+
+    const shareMatch = url.pathname.match(workSharePagePattern);
+    if (shareMatch && request.method === "GET") {
+      return handleWorkSharePage(request, env, shareMatch[1]);
     }
 
     const methodHandlers = routes[url.pathname];
