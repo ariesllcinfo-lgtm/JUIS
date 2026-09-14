@@ -1,8 +1,16 @@
 ---
 import "../styles/global.css";
-interface Props { title?: string; description?: string; }
-const { title = "城北情報大学", description = "城北情報大学公式サイト" } = Astro.props;
+interface Props { title?: string; description?: string; image?: string; }
+const {
+  title = "城北情報大学",
+  description = "城北情報大学公式サイト",
+  image = "/images/ogp-default.jpg",
+} = Astro.props;
 const path = Astro.url.pathname;
+const pageTitle = `${title} | Johoku University of Information Studies`;
+// microCMSのeyecatch画像は既に絶対URL、それ以外（デフォルト画像等）はサイトURLからの相対パスとして解決する
+const ogImageUrl = image.startsWith("http") ? image : new URL(image, Astro.site).toString();
+const canonicalUrl = new URL(path, Astro.site).toString();
 const nav = [
   { href: "/", label: "ホーム" },
   { href: "/academics/", label: "学部・大学院" },
@@ -18,7 +26,30 @@ const nav = [
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content={description} />
-  <title>{title} | Johoku University of Information Studies</title>
+  <title>{pageTitle}</title>
+  <link rel="canonical" href={canonicalUrl} />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+  <!-- OGP（アイキャッチ画像。ページ側でimageを指定しなければ既定の外観写真を使用） -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="城北情報大学" />
+  <meta property="og:title" content={pageTitle} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url" content={canonicalUrl} />
+  <meta property="og:image" content={ogImageUrl} />
+  <meta property="og:locale" content="ja_JP" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={pageTitle} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image" content={ogImageUrl} />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;600;900&display=swap" rel="stylesheet" />
