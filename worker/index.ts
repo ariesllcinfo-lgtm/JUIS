@@ -15,6 +15,7 @@
 
 export interface Env {
   DB: D1Database;
+  CREATOR_DB: D1Database;
   ASSETS: Fetcher;
 }
 
@@ -525,6 +526,316 @@ async function handleAdminUpdateEmail(
   return json({ ok: true, email: newEmail }, 200);
 }
 
+// ---- 創作者コミュニティ（/students/creator/） ----
+//
+// juis-db（CREATOR_DB）を使用する。juis-admissions（DB）とは別のD1データベース。
+// 教員／学生の判定は自己申告させず、初回アクセス時は全員 student／見習い として
+// 自動登録し、教員への昇格は /admin/creator-promote/ からの手動操作でのみ行う。
+
+interface CreatorProfile {
+  id: number;
+  email: string;
+  display_name: string;
+  user_type: string;
+  current_rank: string;
+}
+
+async function ensureCreatorUser(email: string, env: Env): Promise<CreatorProfile> {
+  let user = await env.CREATOR_DB.prepare(
+    `SELECT * FROM creator_users WHERE email = ?`
+  )
+    .bind(email)
+    .first<CreatorProfile>();
+
+  if (!user) {
+    user = await env.CREATOR_DB.prepare(
+      `INSERT INTO creator_users (email, display_name, user_type, current_rank)
+       VALUES (?, ?, 'student', '見習い') RETURNING *`
+    )
+      .bind(email, email.split("@")[0])
+      .first<CreatorProfile>();
+  }
+
+  return user!;
+}
+
+async function handleCreatorMe(request: Request, env: Env): Promise<Response> {
+  const email = getAccessEmail(request);
+  if (!email) return json({ error: "not_authenticated" }, 401);
+
+  const user = await ensureCreatorUser(email, env);
+  return json(user, 200);
+}
+
+async function handleCreatorWorksList(
+  _request: Request,
+  env: Env
+): Promise<Response> {
+  const works = await env.CREATOR_DB.prepare(
+    `SELECT w.*, u.display_name AS author_name, u.current_rank AS author_rank
+     FROM works w JOIN creator_users u ON w.author_id = u.id
+     ORDER BY w.created_at DESC LIMIT 50`
+  ).all();
+  return json({ works: works.results }, 200);
+}
+
+interface CreateWorkBody {
+  title?: string;
+  work_type?: string;
+  body?: string;
+  academic_term?: string;
+}
+
+async function handleCreatorWorksCreate(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const email = getAccessEmail(request);
+  if (!email) return json({ error: "not_authenticated" }, 401);
+  const user = await ensureCreatorUser(email, env);
+
+  let body: CreateWorkBody;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "invalid_json" }, 400);
+  }
+
+  const title = body.title?.trim();
+  const term = body.academic_term?.trim();
+  if (!title || !term) {
+    return json({ error: "title_and_academic_term_required" }, 400);
+  }
+
+  const result = await env.CREATOR_DB.prepare(
+    `INSERT INTO works (author_id, title, work_type, body, academic_term)
+     VALUES (?, ?, ?, ?, ?) RETURNING *`
+  )
+    .bind(user.id, title, body.work_type ?? null, body.body ?? null, term)
+    .first();
+
+  return json(result, 201);
+}
+
+interface CreateCitationBody {
+  citing_work_id?: number;
+  cited_work_id?: number;
+  academic_term?: string;
+}
+
+async function handleCreatorCitationsCreate(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const email = getAccessEmail(request);
+  if (!email) return json({ error: "not_authenticated" }, 401);
+  const user = await ensureCreatorUser(email, env);
+
+  let body: CreateCitationBody;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "invalid_json" }, 400);
+  }
+
+  const { citing_work_id, cited_work_id, academic_term } = body;
+  if (!citing_work_id || !cited_work_id || !academic_term) {
+    return json(
+      { error: "citing_work_id_cited_work_id_academic_term_required" },
+      400
+    );
+  }
+  if (citing_work_id === cited_work_id) {
+    return json({ error: "cannot_cite_same_work" }, 400);
+  }
+
+  const citingWork = await env.CREATOR_DB.prepare(
+    `SELECT author_id FROM works WHERE id = ?`
+  )
+    .bind(citing_work_id)
+    .first<{ author_id: number }>();
+  if (!citingWork || citingWork.author_id !== user.id) {
+    return json({ error: "citing_work_must_be_your_own" }, 403);
+  }
+
+  const citedWork = await env.CREATOR_DB.prepare(
+    `SELECT author_id FROM works WHERE id = ?`
+  )
+    .bind(cited_work_id)
+    .first<{ author_id: number }>();
+  if (!citedWork) return json({ error: "cited_work_not_found" }, 404);
+  if (citedWork.author_id === user.id) {
+    return json({ error: "self_citation_not_allowed" }, 400);
+  }
+
+  try {
+    const result = await env.CREATOR_DB.prepare(
+      `INSERT INTO citations (citing_work_id, cited_work_id, citing_user_id, academic_term)
+       VALUES (?, ?, ?, ?) RETURNING *`
+    )
+      .bind(citing_work_id, cited_work_id, user.id, academic_term)
+      .first();
+    return json(result, 201);
+  } catch {
+    return json({ error: "duplicate_citation" }, 409);
+  }
+}
+
+interface CreateMentorshipBody {
+  mentor_email?: string;
+  work_id?: number;
+  academic_term?: string;
+}
+
+async function handleCreatorMentorshipsCreate(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const email = getAccessEmail(request);
+  if (!email) return json({ error: "not_authenticated" }, 401);
+  const student = await ensureCreatorUser(email, env);
+
+  let body: CreateMentorshipBody;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "invalid_json" }, 400);
+  }
+
+  const mentorEmail = body.mentor_email?.trim();
+  const term = body.academic_term?.trim();
+  if (!mentorEmail || !term) {
+    return json({ error: "mentor_email_and_academic_term_required" }, 400);
+  }
+
+  const mentor = await env.CREATOR_DB.prepare(
+    `SELECT * FROM creator_users WHERE email = ? AND user_type = 'faculty'`
+  )
+    .bind(mentorEmail)
+    .first<CreatorProfile>();
+  if (!mentor) return json({ error: "mentor_not_found_or_not_faculty" }, 404);
+
+  const result = await env.CREATOR_DB.prepare(
+    `INSERT INTO mentorships (mentor_id, student_id, work_id, academic_term, status)
+     VALUES (?, ?, ?, ?, 'pending') RETURNING *`
+  )
+    .bind(mentor.id, student.id, body.work_id ?? null, term)
+    .first();
+
+  return json(result, 201);
+}
+
+async function handleCreatorMentorshipsList(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const email = getAccessEmail(request);
+  if (!email) return json({ error: "not_authenticated" }, 401);
+  const user = await ensureCreatorUser(email, env);
+
+  const results = await env.CREATOR_DB.prepare(
+    `SELECT m.*, mu.display_name AS mentor_name, su.display_name AS student_name
+     FROM mentorships m
+     JOIN creator_users mu ON m.mentor_id = mu.id
+     JOIN creator_users su ON m.student_id = su.id
+     WHERE m.mentor_id = ? OR m.student_id = ?
+     ORDER BY m.created_at DESC`
+  )
+    .bind(user.id, user.id)
+    .all();
+
+  return json({ mentorships: results.results, my_id: user.id }, 200);
+}
+
+async function handleCreatorMentorshipConfirm(
+  request: Request,
+  env: Env,
+  mentorshipId: string
+): Promise<Response> {
+  const email = getAccessEmail(request);
+  if (!email) return json({ error: "not_authenticated" }, 401);
+  const user = await ensureCreatorUser(email, env);
+
+  const mentorship = await env.CREATOR_DB.prepare(
+    `SELECT mentor_id FROM mentorships WHERE id = ?`
+  )
+    .bind(mentorshipId)
+    .first<{ mentor_id: number }>();
+  if (!mentorship) return json({ error: "not_found" }, 404);
+  if (mentorship.mentor_id !== user.id) {
+    return json({ error: "only_mentor_can_confirm" }, 403);
+  }
+
+  const result = await env.CREATOR_DB.prepare(
+    `UPDATE mentorships SET status = 'confirmed' WHERE id = ? RETURNING *`
+  )
+    .bind(mentorshipId)
+    .first();
+
+  return json(result, 200);
+}
+
+// ---- 管理者：教員への昇格（/admin/creator-promote/） ----
+// /admin/以下はCloudflare Accessで管理者のみに制限されている前提。
+// （他のadmin系ハンドラと同様、ここでもアプリ側の追加認可は行わない）
+
+async function handleAdminCreatorSearch(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const url = new URL(request.url);
+  const q = url.searchParams.get("q")?.trim();
+  if (!q) return json({ users: [] }, 200);
+
+  const results = await env.CREATOR_DB.prepare(
+    `SELECT id, email, display_name, user_type, current_rank
+     FROM creator_users
+     WHERE email LIKE ? OR display_name LIKE ?
+     LIMIT 20`
+  )
+    .bind(`%${q}%`, `%${q}%`)
+    .all();
+
+  return json({ users: results.results }, 200);
+}
+
+interface PromoteBody {
+  user_id?: number;
+  new_rank?: string;
+}
+
+const VALID_RANKS = ["見習い", "助教授", "准教授", "教授"];
+
+async function handleAdminCreatorPromote(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  let body: PromoteBody;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "invalid_json" }, 400);
+  }
+
+  const { user_id, new_rank } = body;
+  if (!user_id || !new_rank || !VALID_RANKS.includes(new_rank)) {
+    return json({ error: "user_id_and_valid_new_rank_required" }, 400);
+  }
+
+  // 助教授以上への変更は教員種別も同時に切り替える（見習いへの降格は学生に戻す）
+  const userType = new_rank === "見習い" ? "student" : "faculty";
+
+  const result = await env.CREATOR_DB.prepare(
+    `UPDATE creator_users SET user_type = ?, current_rank = ?, rank_updated_at = datetime('now')
+     WHERE id = ? RETURNING *`
+  )
+    .bind(userType, new_rank, user_id)
+    .first();
+
+  if (!result) return json({ error: "user_not_found" }, 404);
+  return json(result, 200);
+}
+
 // ---- ルーティング表 ----
 // 新しいエンドポイントは、ここに1行足すだけで使えるようになります。
 // 例: "/api/students/progress": { GET: handleStudentProgress },
@@ -540,11 +851,34 @@ const routes: Record<string, Partial<Record<string, Handler>>> = {
   "/api/admin/students/update-email": { POST: handleAdminUpdateEmail },
   "/api/students/purchase": { POST: handlePurchase },
   "/api/students/board": { GET: handleBoardList, POST: handleBoardPost },
+  "/api/students/creator/me": { GET: handleCreatorMe },
+  "/api/students/creator/works": {
+    GET: handleCreatorWorksList,
+    POST: handleCreatorWorksCreate,
+  },
+  "/api/students/creator/citations": { POST: handleCreatorCitationsCreate },
+  "/api/students/creator/mentorships": {
+    GET: handleCreatorMentorshipsList,
+    POST: handleCreatorMentorshipsCreate,
+  },
+  "/api/admin/creator/search": { GET: handleAdminCreatorSearch },
+  "/api/admin/creator/promote": { POST: handleAdminCreatorPromote },
 };
+
+// 動的セグメントを含むパス（/api/students/creator/mentorships/:id/confirm）は
+// 上の静的ルート表では表現できないため、ここで個別にマッチさせる。
+const mentorshipConfirmPattern =
+  /^\/api\/students\/creator\/mentorships\/(\d+)\/confirm$/;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+    const confirmMatch = url.pathname.match(mentorshipConfirmPattern);
+    if (confirmMatch && request.method === "PATCH") {
+      return handleCreatorMentorshipConfirm(request, env, confirmMatch[1]);
+    }
+
     const methodHandlers = routes[url.pathname];
 
     if (methodHandlers) {
