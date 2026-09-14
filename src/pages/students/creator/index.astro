@@ -1,0 +1,331 @@
+---
+// src/pages/students/creator/index.astro
+import StudentLayout from "../../../layouts/StudentLayout.astro";
+---
+
+<StudentLayout
+  title="創作者コミュニティ"
+  description="作品を投稿し、被引用によって階層が上がっていく創作者向けの場です。"
+>
+  <h1 class="text-3xl font-serif font-bold text-primary mb-2">創作者コミュニティ</h1>
+  <p id="profile-line" class="text-gray-500 mb-10">読み込み中…</p>
+
+  <!-- 作品投稿 -->
+  <section class="bg-white rounded-xl shadow-md p-6 mb-10">
+    <h2 class="text-lg font-bold text-gray-900 mb-4">作品を投稿する</h2>
+    <form id="work-form" class="space-y-4">
+      <div>
+        <label for="work-title" class="block text-sm font-medium text-gray-700 mb-1">タイトル</label>
+        <input
+          type="text" id="work-title" required maxlength="100"
+          class="w-full border border-gray-300 rounded px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary"
+        />
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="work-type" class="block text-sm font-medium text-gray-700 mb-1">種別（任意）</label>
+          <input
+            type="text" id="work-type" placeholder="論文／創作／研究ノート等"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary"
+          />
+        </div>
+        <div>
+          <label for="work-term" class="block text-sm font-medium text-gray-700 mb-1">学期</label>
+          <input
+            type="text" id="work-term" required placeholder="例：2026-前期"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary"
+          />
+        </div>
+      </div>
+      <div>
+        <label for="work-body" class="block text-sm font-medium text-gray-700 mb-1">本文またはURL（任意）</label>
+        <textarea
+          id="work-body" rows="4"
+          class="w-full border border-gray-300 rounded px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary"
+        ></textarea>
+      </div>
+      <button
+        type="submit" id="work-submit"
+        class="bg-primary hover:bg-blue-800 text-white font-bold py-2 px-6 rounded transition duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        投稿する
+      </button>
+      <p id="work-error" role="alert" hidden class="text-sm text-red-600"></p>
+    </form>
+  </section>
+
+  <!-- 作品一覧・引用 -->
+  <section class="mb-10">
+    <h2 class="text-lg font-bold text-gray-900 mb-4">作品一覧</h2>
+    <p class="text-sm text-gray-500 mb-4">
+      自分の作品から他者の作品を引用できます。引用は自分が著者の作品からのみ登録でき、自己引用はできません。
+    </p>
+    <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+      <form id="citation-form" class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+        <div>
+          <label for="cite-from" class="block text-xs font-medium text-gray-700 mb-1">引用元（自分の作品ID）</label>
+          <input type="number" id="cite-from" required class="w-full border border-gray-300 rounded px-3 py-2" />
+        </div>
+        <div>
+          <label for="cite-to" class="block text-xs font-medium text-gray-700 mb-1">引用先（作品ID）</label>
+          <input type="number" id="cite-to" required class="w-full border border-gray-300 rounded px-3 py-2" />
+        </div>
+        <div>
+          <label for="cite-term" class="block text-xs font-medium text-gray-700 mb-1">学期</label>
+          <input type="text" id="cite-term" required placeholder="例：2026-前期" class="w-full border border-gray-300 rounded px-3 py-2" />
+        </div>
+        <button
+          type="submit" id="cite-submit"
+          class="bg-secondary hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition disabled:opacity-60"
+        >
+          引用する
+        </button>
+      </form>
+      <p id="cite-error" role="alert" hidden class="text-sm text-red-600 mt-2"></p>
+      <p id="cite-ok" hidden class="text-sm text-green-600 mt-2">引用を登録しました。</p>
+    </div>
+    <div id="works-list">読み込み中…</div>
+  </section>
+
+  <!-- 指導関係 -->
+  <section class="mb-10">
+    <h2 class="text-lg font-bold text-gray-900 mb-4">指導関係</h2>
+    <p class="text-sm text-gray-500 mb-4">
+      指導を受けた教員のメールアドレスを入力して申請してください。教員側の承認後に有効になります。
+    </p>
+    <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+      <form id="mentorship-form" class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+        <div class="sm:col-span-2">
+          <label for="mentor-email" class="block text-xs font-medium text-gray-700 mb-1">指導教員のメールアドレス</label>
+          <input type="email" id="mentor-email" required class="w-full border border-gray-300 rounded px-3 py-2" />
+        </div>
+        <div>
+          <label for="mentorship-term" class="block text-xs font-medium text-gray-700 mb-1">学期</label>
+          <input type="text" id="mentorship-term" required placeholder="例：2026-前期" class="w-full border border-gray-300 rounded px-3 py-2" />
+        </div>
+      </form>
+      <button
+        type="submit" form="mentorship-form" id="mentorship-submit"
+        class="mt-3 bg-secondary hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition disabled:opacity-60"
+      >
+        申請する
+      </button>
+      <p id="mentorship-error" role="alert" hidden class="text-sm text-red-600 mt-2"></p>
+    </div>
+    <div id="mentorships-list">読み込み中…</div>
+  </section>
+</StudentLayout>
+
+<script>
+  interface Profile {
+    id: number;
+    display_name: string;
+    user_type: string;
+    current_rank: string;
+  }
+  interface Work {
+    id: number;
+    title: string;
+    work_type: string | null;
+    academic_term: string;
+    author_name: string;
+    author_rank: string;
+  }
+  interface Mentorship {
+    id: number;
+    mentor_id: number;
+    student_id: number;
+    mentor_name: string;
+    student_name: string;
+    status: string;
+    academic_term: string;
+  }
+
+  let myId = 0;
+
+  function escapeHtml(s: string): string {
+    const div = document.createElement("div");
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  async function loadProfile() {
+    const el = document.getElementById("profile-line")!;
+    try {
+      const res = await fetch("/api/students/creator/me");
+      if (!res.ok) throw new Error("failed");
+      const p: Profile = await res.json();
+      myId = p.id;
+      el.textContent = `${p.display_name} さん（${p.user_type === "faculty" ? "教員" : "学生"} ／ 階層：${p.current_rank}）`;
+    } catch {
+      el.textContent = "プロフィールを取得できませんでした。";
+    }
+  }
+
+  async function loadWorks() {
+    const el = document.getElementById("works-list")!;
+    try {
+      const res = await fetch("/api/students/creator/works");
+      if (!res.ok) throw new Error("failed");
+      const data: { works: Work[] } = await res.json();
+      if (data.works.length === 0) {
+        el.innerHTML = '<p class="text-sm text-gray-400">まだ作品がありません。</p>';
+        return;
+      }
+      el.innerHTML = data.works
+        .map(
+          (w) => `
+            <div class="bg-white rounded-xl shadow-md p-5 mb-3">
+              <div class="flex justify-between items-baseline flex-wrap gap-2">
+                <h3 class="font-bold text-gray-900">#${w.id} ${escapeHtml(w.title)}</h3>
+                <span class="text-xs text-gray-400">${escapeHtml(w.academic_term)}</span>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">
+                ${escapeHtml(w.author_name)}（${escapeHtml(w.author_rank)}）${w.work_type ? " ／ " + escapeHtml(w.work_type) : ""}
+              </p>
+            </div>
+          `
+        )
+        .join("");
+    } catch {
+      el.innerHTML = '<p class="text-sm text-red-500">作品一覧の取得に失敗しました。</p>';
+    }
+  }
+
+  async function loadMentorships() {
+    const el = document.getElementById("mentorships-list")!;
+    try {
+      const res = await fetch("/api/students/creator/mentorships");
+      if (!res.ok) throw new Error("failed");
+      const data: { mentorships: Mentorship[] } = await res.json();
+      if (data.mentorships.length === 0) {
+        el.innerHTML = '<p class="text-sm text-gray-400">指導関係はまだありません。</p>';
+        return;
+      }
+      el.innerHTML = data.mentorships
+        .map((m) => {
+          const isMentor = m.mentor_id === myId;
+          const badge =
+            m.status === "confirmed"
+              ? '<span class="text-xs text-green-600">承認済み</span>'
+              : '<span class="text-xs text-yellow-600">承認待ち</span>';
+          const confirmBtn =
+            isMentor && m.status === "pending"
+              ? `<button class="confirm-btn text-xs bg-primary text-white rounded px-3 py-1 mt-2" data-id="${m.id}">承認する</button>`
+              : "";
+          return `
+            <div class="bg-white rounded-xl shadow-md p-5 mb-3">
+              <p class="text-sm text-gray-800">
+                指導教員：${escapeHtml(m.mentor_name)} ／ 学生：${escapeHtml(m.student_name)} ／ ${escapeHtml(m.academic_term)}
+              </p>
+              <div class="mt-1">${badge}</div>
+              ${confirmBtn}
+            </div>
+          `;
+        })
+        .join("");
+
+      el.querySelectorAll<HTMLButtonElement>(".confirm-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          btn.disabled = true;
+          try {
+            const res = await fetch(`/api/students/creator/mentorships/${btn.dataset.id}/confirm`, {
+              method: "PATCH",
+            });
+            if (!res.ok) throw new Error("failed");
+            await loadMentorships();
+          } catch {
+            btn.disabled = false;
+            alert("承認に失敗しました。");
+          }
+        });
+      });
+    } catch {
+      el.innerHTML = '<p class="text-sm text-red-500">指導関係の取得に失敗しました。</p>';
+    }
+  }
+
+  const workForm = document.getElementById("work-form") as HTMLFormElement;
+  const workSubmit = document.getElementById("work-submit") as HTMLButtonElement;
+  const workError = document.getElementById("work-error")!;
+  workForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    workError.hidden = true;
+    workSubmit.disabled = true;
+    try {
+      const res = await fetch("/api/students/creator/works", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: (document.getElementById("work-title") as HTMLInputElement).value.trim(),
+          work_type: (document.getElementById("work-type") as HTMLInputElement).value.trim(),
+          body: (document.getElementById("work-body") as HTMLTextAreaElement).value.trim(),
+          academic_term: (document.getElementById("work-term") as HTMLInputElement).value.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error("failed");
+      workForm.reset();
+      await loadWorks();
+    } catch {
+      workError.textContent = "投稿に失敗しました。入力内容を確認してください。";
+      workError.hidden = false;
+    } finally {
+      workSubmit.disabled = false;
+    }
+  });
+
+  const citeForm = document.getElementById("citation-form") as HTMLFormElement;
+  const citeError = document.getElementById("cite-error")!;
+  const citeOk = document.getElementById("cite-ok")!;
+  citeForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    citeError.hidden = true;
+    citeOk.hidden = true;
+    try {
+      const res = await fetch("/api/students/creator/citations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          citing_work_id: Number((document.getElementById("cite-from") as HTMLInputElement).value),
+          cited_work_id: Number((document.getElementById("cite-to") as HTMLInputElement).value),
+          academic_term: (document.getElementById("cite-term") as HTMLInputElement).value.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "failed");
+      citeForm.reset();
+      citeOk.hidden = false;
+    } catch (err) {
+      citeError.textContent = "引用の登録に失敗しました（自己引用・重複引用・存在しない作品IDなどの可能性があります）。";
+      citeError.hidden = false;
+    }
+  });
+
+  const mentorshipForm = document.getElementById("mentorship-form") as HTMLFormElement;
+  const mentorshipError = document.getElementById("mentorship-error")!;
+  mentorshipForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    mentorshipError.hidden = true;
+    try {
+      const res = await fetch("/api/students/creator/mentorships", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mentor_email: (document.getElementById("mentor-email") as HTMLInputElement).value.trim(),
+          academic_term: (document.getElementById("mentorship-term") as HTMLInputElement).value.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error("failed");
+      mentorshipForm.reset();
+      await loadMentorships();
+    } catch {
+      mentorshipError.textContent = "申請に失敗しました。教員のメールアドレスが正しいか確認してください。";
+      mentorshipError.hidden = false;
+    }
+  });
+
+  (async () => {
+    await loadProfile();
+    await Promise.all([loadWorks(), loadMentorships()]);
+  })();
+</script>
