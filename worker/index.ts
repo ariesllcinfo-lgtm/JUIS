@@ -402,13 +402,18 @@ async function handleRegister(request: Request, env: Env): Promise<Response> {
 // ---- 掲示板（/students/board/） ----
 
 async function handleBoardList(_request: Request, env: Env): Promise<Response> {
+  // スレッド一覧：返信も含めた最終活動日時で並び替える（返信が付くと上に上がる）
   const posts = await env.DB.prepare(
-    `SELECT board_posts.id, board_posts.title, board_posts.body, board_posts.created_at,
-            board_posts.student_email,
-            COALESCE(students.name, board_posts.student_email) AS display_name
-     FROM board_posts
-     LEFT JOIN students ON students.email = board_posts.student_email
-     ORDER BY board_posts.created_at DESC
+    `SELECT p.id, p.title, p.body, p.created_at, p.student_email,
+            COALESCE(s.name, p.student_email) AS display_name,
+            (SELECT COUNT(*) FROM board_replies r WHERE r.thread_id = p.id) AS reply_count,
+            COALESCE(
+              (SELECT MAX(r.created_at) FROM board_replies r WHERE r.thread_id = p.id),
+              p.created_at
+            ) AS last_activity_at
+     FROM board_posts p
+     LEFT JOIN students s ON s.email = p.student_email
+     ORDER BY last_activity_at DESC
      LIMIT 50`
   ).all();
 
@@ -450,6 +455,151 @@ async function handleBoardPost(request: Request, env: Env): Promise<Response> {
     return json({ error: "db_write_failed" }, 500);
   }
 
+  return json({ ok: true }, 200);
+}
+
+// スレッド詳細（返信一覧込み）。 /api/students/board/thread?id=42
+interface BoardThreadRow {
+  id: number;
+  title: string;
+  body: string;
+  created_at: string;
+  student_email: string;
+  display_name: string;
+}
+interface BoardReplyRow {
+  id: number;
+  thread_id: number;
+  body: string;
+  created_at: string;
+  student_email: string;
+  display_name: string;
+}
+
+async function handleBoardThreadDetail(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const url = new URL(request.url);
+  const id = url.searchParams.get("id");
+  if (!id) return json({ error: "id_required" }, 400);
+
+  const thread = await env.DB.prepare(
+    `SELECT p.id, p.title, p.body, p.created_at, p.student_email,
+            COALESCE(s.name, p.student_email) AS display_name
+     FROM board_posts p LEFT JOIN students s ON s.email = p.student_email
+     WHERE p.id = ?`
+  )
+    .bind(id)
+    .first<BoardThreadRow>();
+  if (!thread) return json({ error: "not_found" }, 404);
+
+  const replies = await env.DB.prepare(
+    `SELECT r.id, r.thread_id, r.body, r.created_at, r.student_email,
+            COALESCE(s.name, r.student_email) AS display_name
+     FROM board_replies r LEFT JOIN students s ON s.email = r.student_email
+     WHERE r.thread_id = ?
+     ORDER BY r.created_at ASC`
+  )
+    .bind(id)
+    .all<BoardReplyRow>();
+
+  return json({ thread, replies: replies.results }, 200);
+}
+
+// スレッド削除（投稿者本人のみ。返信も道連れで削除する）
+async function handleBoardThreadDelete(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const email = getAccessEmail(request);
+  if (!email) return json({ error: "not_authenticated" }, 401);
+
+  const url = new URL(request.url);
+  const id = url.searchParams.get("id");
+  if (!id) return json({ error: "id_required" }, 400);
+
+  const thread = await env.DB.prepare(
+    `SELECT student_email FROM board_posts WHERE id = ?`
+  )
+    .bind(id)
+    .first<{ student_email: string }>();
+  if (!thread) return json({ error: "not_found" }, 404);
+  if (thread.student_email !== email) {
+    return json({ error: "only_author_can_delete" }, 403);
+  }
+
+  await env.DB.batch([
+    env.DB.prepare(`DELETE FROM board_replies WHERE thread_id = ?`).bind(id),
+    env.DB.prepare(`DELETE FROM board_posts WHERE id = ?`).bind(id),
+  ]);
+
+  return json({ ok: true }, 200);
+}
+
+interface CreateReplyBody {
+  thread_id?: number;
+  body?: string;
+}
+
+async function handleBoardReplyCreate(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const email = getAccessEmail(request);
+  if (!email) return json({ error: "not_authenticated" }, 401);
+
+  let body: CreateReplyBody;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "invalid_json" }, 400);
+  }
+
+  const threadId = body.thread_id;
+  const content = body.body?.trim();
+  if (!threadId || !content) {
+    return json({ error: "thread_id_and_body_required" }, 400);
+  }
+
+  const thread = await env.DB.prepare(`SELECT id FROM board_posts WHERE id = ?`)
+    .bind(threadId)
+    .first();
+  if (!thread) return json({ error: "thread_not_found" }, 404);
+
+  const result = await env.DB.prepare(
+    `INSERT INTO board_replies (thread_id, student_email, body)
+     VALUES (?, ?, ?) RETURNING *`
+  )
+    .bind(threadId, email, content)
+    .first();
+
+  return json(result, 201);
+}
+
+// 返信削除（投稿者本人のみ）
+async function handleBoardReplyDelete(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const email = getAccessEmail(request);
+  if (!email) return json({ error: "not_authenticated" }, 401);
+
+  const url = new URL(request.url);
+  const id = url.searchParams.get("id");
+  if (!id) return json({ error: "id_required" }, 400);
+
+  const reply = await env.DB.prepare(
+    `SELECT student_email FROM board_replies WHERE id = ?`
+  )
+    .bind(id)
+    .first<{ student_email: string }>();
+  if (!reply) return json({ error: "not_found" }, 404);
+  if (reply.student_email !== email) {
+    return json({ error: "only_author_can_delete" }, 403);
+  }
+
+  await env.DB.prepare(`DELETE FROM board_replies WHERE id = ?`).bind(id).run();
   return json({ ok: true }, 200);
 }
 
@@ -1126,6 +1276,14 @@ const routes: Record<string, Partial<Record<string, Handler>>> = {
   "/api/admin/students/update-email": { POST: handleAdminUpdateEmail },
   "/api/students/purchase": { POST: handlePurchase },
   "/api/students/board": { GET: handleBoardList, POST: handleBoardPost },
+  "/api/students/board/thread": {
+    GET: handleBoardThreadDetail,
+    DELETE: handleBoardThreadDelete,
+  },
+  "/api/students/board/replies": {
+    POST: handleBoardReplyCreate,
+    DELETE: handleBoardReplyDelete,
+  },
   "/api/students/creator/me": { GET: handleCreatorMe },
   "/api/students/creator/profile": { GET: handleCreatorProfilePeek },
   "/api/students/creator/works": {
