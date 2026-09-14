@@ -259,6 +259,15 @@ async function handleProfile(request: Request, env: Env): Promise<Response> {
         ).bind(pending.old_email),
       ]);
 
+      // creator_users は別のD1データベース（CREATOR_DB）にあるため、
+      // 上のbatchとは別トランザクションになるが、続けて反映しておく。
+      // 該当レコードが無い（創作者コミュニティ未参加）場合は0件更新で正常終了する。
+      await env.CREATOR_DB.prepare(
+        "UPDATE creator_users SET email = ? WHERE email = ?"
+      )
+        .bind(email, pending.old_email)
+        .run();
+
       profile = await env.DB.prepare(
         `SELECT email, name, faculty, enrollment_year, student_id
          FROM students
@@ -567,16 +576,81 @@ async function handleCreatorMe(request: Request, env: Env): Promise<Response> {
   return json(user, 200);
 }
 
-async function handleCreatorWorksList(
-  _request: Request,
+// アカウントページ（/students/account/）用の非破壊な参照エンドポイント。
+// handleCreatorMeと違い、レコードが無くても自動登録は行わない
+// （アカウント情報を見ただけで勝手に創作者コミュニティへ登録されるのを防ぐため）。
+async function handleCreatorProfilePeek(
+  request: Request,
   env: Env
 ): Promise<Response> {
-  const works = await env.CREATOR_DB.prepare(
-    `SELECT w.*, u.display_name AS author_name, u.current_rank AS author_rank
-     FROM works w JOIN creator_users u ON w.author_id = u.id
-     ORDER BY w.created_at DESC LIMIT 50`
-  ).all();
-  return json({ works: works.results }, 200);
+  const email = getAccessEmail(request);
+  if (!email) return json({ error: "not_authenticated" }, 401);
+
+  const user = await env.CREATOR_DB.prepare(
+    `SELECT * FROM creator_users WHERE email = ?`
+  )
+    .bind(email)
+    .first<CreatorProfile>();
+
+  if (!user) return json({ error: "not_registered" }, 404);
+  return json(user, 200);
+}
+
+const WORKS_PAGE_SIZE = 20;
+
+async function handleCreatorWorksList(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const url = new URL(request.url);
+  const q = url.searchParams.get("q")?.trim();
+  const term = url.searchParams.get("term")?.trim();
+  const type = url.searchParams.get("type")?.trim();
+  const sort = url.searchParams.get("sort") === "cited" ? "cited" : "new";
+  const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+  const offset = (page - 1) * WORKS_PAGE_SIZE;
+
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (q) {
+    conditions.push("w.title LIKE ?");
+    params.push(`%${q}%`);
+  }
+  if (term) {
+    conditions.push("w.academic_term = ?");
+    params.push(term);
+  }
+  if (type) {
+    conditions.push("w.work_type = ?");
+    params.push(type);
+  }
+
+  const whereClause = conditions.length
+    ? `WHERE ${conditions.join(" AND ")}`
+    : "";
+
+  // デフォルトは新着順。被引用数順はオプション扱いとし、
+  // 先行投稿が構造的に有利であり続ける状態を検索機能側が助長しないようにする。
+  const orderClause =
+    sort === "cited"
+      ? "ORDER BY citation_count DESC, w.created_at DESC"
+      : "ORDER BY w.created_at DESC";
+
+  const sql = `
+    SELECT w.*, u.display_name AS author_name, u.current_rank AS author_rank,
+      (SELECT COUNT(*) FROM citations c WHERE c.cited_work_id = w.id) AS citation_count
+    FROM works w JOIN creator_users u ON w.author_id = u.id
+    ${whereClause}
+    ${orderClause}
+    LIMIT ? OFFSET ?
+  `;
+
+  const works = await env.CREATOR_DB.prepare(sql)
+    .bind(...params, WORKS_PAGE_SIZE, offset)
+    .all();
+
+  return json({ works: works.results, page, page_size: WORKS_PAGE_SIZE }, 200);
 }
 
 interface CreateWorkBody {
@@ -852,6 +926,7 @@ const routes: Record<string, Partial<Record<string, Handler>>> = {
   "/api/students/purchase": { POST: handlePurchase },
   "/api/students/board": { GET: handleBoardList, POST: handleBoardPost },
   "/api/students/creator/me": { GET: handleCreatorMe },
+  "/api/students/creator/profile": { GET: handleCreatorProfilePeek },
   "/api/students/creator/works": {
     GET: handleCreatorWorksList,
     POST: handleCreatorWorksCreate,
