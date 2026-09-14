@@ -262,12 +262,15 @@ import StudentLayout from "../../../layouts/StudentLayout.astro";
     return `
       <div class="bg-white rounded-xl shadow-md p-5 mb-3">
         <div class="flex justify-between items-baseline flex-wrap gap-2">
-          <h3 class="font-bold text-gray-900">#${w.id} ${escapeHtml(w.title)}</h3>
+          <h3 class="font-bold text-gray-900">
+            <a href="/students/creator/works/${w.id}/" class="hover:text-primary hover:underline">#${w.id} ${escapeHtml(w.title)}</a>
+          </h3>
           <span class="text-xs text-gray-400">${escapeHtml(w.academic_term)}</span>
         </div>
         <p class="text-xs text-gray-500 mt-1">
           ${escapeHtml(w.author_name)}（${escapeHtml(w.author_rank)}）${w.work_type ? " ／ " + escapeHtml(w.work_type) : ""}
           ／ 被引用 ${w.citation_count}件
+          ／ <a href="/students/creator/works/${w.id}/" class="text-secondary hover:underline">学術カードを見る</a>
         </p>
       </div>
     `;
