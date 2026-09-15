@@ -403,16 +403,16 @@ async function handleRegister(request: Request, env: Env): Promise<Response> {
 
 async function handleBoardList(_request: Request, env: Env): Promise<Response> {
   // スレッド一覧：返信も含めた最終活動日時で並び替える（返信が付くと上に上がる）
+  // 表示名はハンドルネーム（未入力なら「名無しさん」）。実名は使わない。
   const posts = await env.DB.prepare(
     `SELECT p.id, p.title, p.body, p.created_at, p.student_email,
-            COALESCE(s.name, p.student_email) AS display_name,
+            COALESCE(NULLIF(p.handle_name, ''), '名無しさん') AS display_name,
             (SELECT COUNT(*) FROM board_replies r WHERE r.thread_id = p.id) AS reply_count,
             COALESCE(
               (SELECT MAX(r.created_at) FROM board_replies r WHERE r.thread_id = p.id),
               p.created_at
             ) AS last_activity_at
      FROM board_posts p
-     LEFT JOIN students s ON s.email = p.student_email
      ORDER BY last_activity_at DESC
      LIMIT 50`
   ).all();
@@ -423,6 +423,7 @@ async function handleBoardList(_request: Request, env: Env): Promise<Response> {
 interface BoardPostBody {
   title?: string;
   body?: string;
+  handle_name?: string;
 }
 
 async function handleBoardPost(request: Request, env: Env): Promise<Response> {
@@ -440,16 +441,17 @@ async function handleBoardPost(request: Request, env: Env): Promise<Response> {
 
   const title = body.title?.trim();
   const content = body.body?.trim();
+  const handleName = body.handle_name?.trim() || null;
   if (!title || !content) {
     return json({ error: "title_and_body_required" }, 400);
   }
 
   try {
     await env.DB.prepare(
-      `INSERT INTO board_posts (student_email, title, body)
-       VALUES (?, ?, ?)`
+      `INSERT INTO board_posts (student_email, title, body, handle_name)
+       VALUES (?, ?, ?, ?)`
     )
-      .bind(email, title, content)
+      .bind(email, title, content, handleName)
       .run();
   } catch (err) {
     return json({ error: "db_write_failed" }, 500);
@@ -486,8 +488,8 @@ async function handleBoardThreadDetail(
 
   const thread = await env.DB.prepare(
     `SELECT p.id, p.title, p.body, p.created_at, p.student_email,
-            COALESCE(s.name, p.student_email) AS display_name
-     FROM board_posts p LEFT JOIN students s ON s.email = p.student_email
+            COALESCE(NULLIF(p.handle_name, ''), '名無しさん') AS display_name
+     FROM board_posts p
      WHERE p.id = ?`
   )
     .bind(id)
@@ -496,8 +498,8 @@ async function handleBoardThreadDetail(
 
   const replies = await env.DB.prepare(
     `SELECT r.id, r.thread_id, r.body, r.created_at, r.student_email,
-            COALESCE(s.name, r.student_email) AS display_name
-     FROM board_replies r LEFT JOIN students s ON s.email = r.student_email
+            COALESCE(NULLIF(r.handle_name, ''), '名無しさん') AS display_name
+     FROM board_replies r
      WHERE r.thread_id = ?
      ORDER BY r.created_at ASC`
   )
@@ -540,6 +542,7 @@ async function handleBoardThreadDelete(
 interface CreateReplyBody {
   thread_id?: number;
   body?: string;
+  handle_name?: string;
 }
 
 async function handleBoardReplyCreate(
@@ -558,6 +561,7 @@ async function handleBoardReplyCreate(
 
   const threadId = body.thread_id;
   const content = body.body?.trim();
+  const handleName = body.handle_name?.trim() || null;
   if (!threadId || !content) {
     return json({ error: "thread_id_and_body_required" }, 400);
   }
@@ -568,10 +572,10 @@ async function handleBoardReplyCreate(
   if (!thread) return json({ error: "thread_not_found" }, 404);
 
   const result = await env.DB.prepare(
-    `INSERT INTO board_replies (thread_id, student_email, body)
-     VALUES (?, ?, ?) RETURNING *`
+    `INSERT INTO board_replies (thread_id, student_email, body, handle_name)
+     VALUES (?, ?, ?, ?) RETURNING *`
   )
-    .bind(threadId, email, content)
+    .bind(threadId, email, content, handleName)
     .first();
 
   return json(result, 201);
