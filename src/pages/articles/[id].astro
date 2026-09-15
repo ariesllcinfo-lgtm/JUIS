@@ -47,9 +47,48 @@ const backLabel = isRecruitment
       : isPublication
         ? "← 教育・研究に戻る"
         : "← 学部・大学院に戻る";
+
+// typeに応じて構造化データを出し分ける（該当しないtypeではundefinedのままLayoutに渡り、
+// サイト全体のCollegeOrUniversityのみが出力される）
+let articleSchema;
+if (isSyllabus) {
+  articleSchema = {
+    "@context": "https://schema.org",
+    "@type": "Course",
+    "name": item.title,
+    "provider": { "@type": "CollegeOrUniversity", "name": "城北情報大学" },
+    ...(item.faculty && { "coursePrerequisites": item.faculty }),
+    "hasCourseInstance": {
+      "@type": "CourseInstance",
+      "courseMode": "onsite",
+      ...(item.term && { "courseSchedule": item.term }),
+      ...(item.instructor && { "instructor": { "@type": "Person", "name": item.instructor } }),
+    },
+  };
+} else if (isFacultyProfile) {
+  articleSchema = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "name": item.title,
+    ...(item.position && { "jobTitle": item.position }),
+    "worksFor": { "@type": "CollegeOrUniversity", "name": "城北情報大学" },
+    ...(item.faculty && { "affiliation": item.faculty }),
+    ...(item.specialty && { "knowsAbout": item.specialty }),
+    ...(item.eyecatch?.url && { "image": item.eyecatch.url }),
+  };
+} else if (isPublication) {
+  articleSchema = {
+    "@context": "https://schema.org",
+    "@type": "ScholarlyArticle",
+    "headline": item.title,
+    ...(item.authors && { "author": { "@type": "Person", "name": item.authors } }),
+    ...(item.venue && { "isPartOf": { "@type": "Periodical", "name": item.venue } }),
+    ...(item.year && { "datePublished": String(item.year) }),
+  };
+}
 ---
 
-<Layout title={item.title} description={item.title}>
+<Layout title={item.title} description={item.title} schema={articleSchema}>
 <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
 <h1 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mb-6 leading-tight">{item.title}</h1>
 
@@ -146,5 +185,109 @@ const backLabel = isRecruitment
 
 <div class="rich-content" set:html={item.content} />
 <a href={backHref} class="inline-block mt-16 text-sm font-medium text-secondary hover:underline">{backLabel}</a>
+</div>
+</Layout>
+8. src/pages/news/[id].astro
+NewsArticle構造化データを追加しています。
+
+---
+import Layout from "../../layouts/Layout.astro";
+import { createClient } from "microcms-js-sdk";
+
+export async function getStaticPaths() {
+  const client = createClient({
+    serviceDomain: import.meta.env.MICROCMS_SERVICE_DOMAIN,
+    apiKey: import.meta.env.MICROCMS_API_KEY,
+  });
+  const { contents } = await client.get({
+    endpoint: "articles",
+    queries: { limit: 100 },
+  });
+  return contents
+    .filter((item) => item.type?.includes("News"))
+    .map((item) => ({
+      params: { id: item.id },
+      props: { item },
+    }));
+}
+
+const { item } = Astro.props;
+
+function formatDate(dateStr) {
+  return new Date(dateStr)
+    .toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" })
+    .replace(/\//g, ".");
+}
+
+const newsSchema = {
+  "@context": "https://schema.org",
+  "@type": "NewsArticle",
+  "headline": item.title,
+  "datePublished": item.publishedAt,
+  "dateModified": item.updatedAt ?? item.publishedAt,
+  "publisher": { "@type": "CollegeOrUniversity", "name": "城北情報大学" },
+};
+---
+
+<Layout title={item.title} description={item.title} schema={newsSchema}>
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+<time class="text-sm text-gray-500 font-medium">{formatDate(item.publishedAt)}</time>
+<h1 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mt-4 mb-10 leading-tight">{item.title}</h1>
+<div class="rich-content" set:html={item.content} />
+<a href="/news/" class="inline-block mt-16 text-sm font-medium text-secondary hover:underline">← お知らせ一覧に戻る</a>
+</div>
+</Layout>
+9. src/pages/topics/[id].astro
+Article構造化データを追加しています。
+
+---
+import Layout from "../../layouts/Layout.astro";
+import { createClient } from "microcms-js-sdk";
+
+export async function getStaticPaths() {
+  const client = createClient({
+    serviceDomain: import.meta.env.MICROCMS_SERVICE_DOMAIN,
+    apiKey: import.meta.env.MICROCMS_API_KEY,
+  });
+  const { contents } = await client.get({
+    endpoint: "articles",
+    queries: { limit: 100 },
+  });
+  return contents
+    .filter((item) => item.type?.includes("Topics"))
+    .map((item) => ({
+      params: { id: item.id },
+      props: { item },
+    }));
+}
+
+const { item } = Astro.props;
+
+function formatDate(dateStr) {
+  return new Date(dateStr)
+    .toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" })
+    .replace(/\//g, ".");
+}
+
+const topicSchema = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": item.title,
+  "datePublished": item.publishedAt,
+  "dateModified": item.updatedAt ?? item.publishedAt,
+  "image": item.eyecatch?.url,
+  "publisher": { "@type": "CollegeOrUniversity", "name": "城北情報大学" },
+};
+---
+
+<Layout title={item.title} description={item.title} schema={topicSchema}>
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+{item.eyecatch && (
+<img src={item.eyecatch.url} alt={item.title} class="w-full h-auto rounded-lg mb-10 object-cover" />
+)}
+<time class="text-sm text-gray-500 font-medium">{formatDate(item.publishedAt)}</time>
+<h1 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mt-4 mb-10 leading-tight">{item.title}</h1>
+<div class="rich-content" set:html={item.content} />
+<a href="/topics/" class="inline-block mt-16 text-sm font-medium text-secondary hover:underline">← Topics一覧に戻る</a>
 </div>
 </Layout>
