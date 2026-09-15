@@ -4,33 +4,36 @@ import StudentLayout from "../../../layouts/StudentLayout.astro";
 ---
 
 <StudentLayout title="スレッド" description="城北情報大学の学生専用掲示板です。">
-  <a href="/students/board/" class="text-sm text-secondary hover:underline">← 掲示板に戻る</a>
+  <a href="/students/board/" class="text-xs text-secondary hover:underline">← 掲示板に戻る</a>
 
-  <div id="thread-area" class="mt-6">読み込み中…</div>
+  <h1 id="thread-title" class="text-lg font-serif font-bold text-primary mt-2 mb-3"></h1>
 
-  <h2 class="text-lg font-bold text-gray-900 mt-10 mb-4">返信</h2>
-  <div id="replies-area">読み込み中…</div>
+  <div id="posts" class="border-t border-gray-300 text-sm font-mono leading-relaxed">読み込み中…</div>
 
-  <div class="bg-white rounded-xl shadow-md p-6 mt-6">
-    <h3 class="text-sm font-bold text-gray-900 mb-3">返信する</h3>
+  <div class="border border-gray-300 bg-gray-50 mt-4 px-3 py-3">
+    <div class="flex flex-col sm:flex-row gap-2 mb-2">
+      <input
+        type="text" id="reply-handle" placeholder="名無しさん" maxlength="30"
+        class="w-full sm:w-40 border border-gray-300 rounded-none px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-secondary"
+      />
+      <span class="text-xs text-gray-400 self-center">本文中に <code>&gt;&gt;1</code> のように書くと該当レスにリンクできます</span>
+    </div>
     <form id="reply-form">
       <textarea
-        id="reply-body"
-        required
-        rows="3"
-        maxlength="2000"
-        class="w-full border border-gray-300 rounded px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary"
+        id="reply-body" required rows="3" maxlength="2000" placeholder="レスを書く"
+        class="w-full border border-gray-300 rounded-none px-2 py-1 text-sm font-mono leading-relaxed focus:outline-none focus:ring-1 focus:ring-secondary"
       ></textarea>
       <button
-        type="submit"
-        id="reply-submit"
-        class="mt-3 bg-primary hover:bg-blue-800 text-white font-bold py-2 px-6 rounded transition duration-300 disabled:opacity-60"
+        type="submit" id="reply-submit"
+        class="mt-2 bg-primary hover:bg-blue-800 text-white text-sm font-bold py-1 px-4 rounded-none transition disabled:opacity-60"
       >
-        返信を投稿する
+        レスする
       </button>
-      <p id="reply-error" role="alert" hidden class="text-sm text-red-600 mt-2"></p>
+      <p id="reply-error" role="alert" hidden class="text-xs text-red-600 mt-1"></p>
     </form>
   </div>
+
+  <div id="ref-tooltip" class="hidden fixed z-50 max-w-sm bg-white border border-primary shadow-lg text-xs font-mono p-2 leading-relaxed"></div>
 </StudentLayout>
 
 <script>
@@ -50,9 +53,17 @@ import StudentLayout from "../../../layouts/StudentLayout.astro";
     student_email: string;
     display_name: string;
   }
+  interface ResEntry {
+    num: number;
+    name: string;
+    date: string;
+    body: string;
+    email: string;
+  }
 
   const threadId = new URL(location.href).searchParams.get("id");
   let myEmail = "";
+  const resMap = new Map<number, ResEntry>();
 
   function escapeHtml(s: string): string {
     const div = document.createElement("div");
@@ -67,6 +78,30 @@ import StudentLayout from "../../../layouts/StudentLayout.astro";
     return `${jst.getFullYear()}/${pad(jst.getMonth() + 1)}/${pad(jst.getDate())} ${pad(jst.getHours())}:${pad(jst.getMinutes())}`;
   }
 
+  // 本文をエスケープした上で >>数字 をレスへのリンクに変換する
+  function linkifyBody(body: string): string {
+    const escaped = escapeHtml(body);
+    return escaped.replace(/&gt;&gt;(\d+)/g, (match, numStr) => {
+      const num = Number(numStr);
+      if (!resMap.has(num)) return match;
+      return `<a href="#res-${num}" class="anchor-ref text-secondary hover:underline" data-ref="${num}">&gt;&gt;${num}</a>`;
+    });
+  }
+
+  function renderRes(entry: ResEntry, extraBtn: string): string {
+    return `
+      <div id="res-${entry.num}" class="px-1 py-2 border-b border-gray-200">
+        <div class="text-xs text-gray-500">
+          <span class="font-bold text-gray-700">${entry.num}</span>：
+          <span class="text-primary font-bold">${escapeHtml(entry.name)}</span>
+          <span class="text-gray-400">${formatDate(entry.date)}</span>
+          ${extraBtn}
+        </div>
+        <div class="whitespace-pre-wrap mt-1">${linkifyBody(entry.body)}</div>
+      </div>
+    `;
+  }
+
   async function loadMyEmail() {
     try {
       const res = await fetch("/api/students/profile");
@@ -74,17 +109,16 @@ import StudentLayout from "../../../layouts/StudentLayout.astro";
       const p: { email: string } = await res.json();
       myEmail = p.email;
     } catch {
-      // 取得できなくても閲覧自体は継続できるようにする
+      // 未取得でも閲覧は継続
     }
   }
 
   async function loadThread() {
-    const threadEl = document.getElementById("thread-area")!;
-    const repliesEl = document.getElementById("replies-area")!;
+    const postsEl = document.getElementById("posts")!;
+    const titleEl = document.getElementById("thread-title")!;
 
     if (!threadId) {
-      threadEl.innerHTML = '<p class="text-sm text-red-500">スレッドIDが指定されていません。</p>';
-      repliesEl.innerHTML = "";
+      postsEl.innerHTML = '<p class="text-xs text-red-500 py-3">スレッドIDが指定されていません。</p>';
       return;
     }
 
@@ -93,75 +127,106 @@ import StudentLayout from "../../../layouts/StudentLayout.astro";
       if (!res.ok) throw new Error("not_found");
       const data: { thread: Thread; replies: Reply[] } = await res.json();
 
-      const isThreadOwner = data.thread.student_email === myEmail;
-      threadEl.innerHTML = `
-        <div class="bg-white rounded-xl shadow-md p-6">
-          <div class="flex justify-between items-start flex-wrap gap-2">
-            <h1 class="text-2xl font-serif font-bold text-primary">${escapeHtml(data.thread.title)}</h1>
-            ${isThreadOwner ? `<button id="delete-thread" class="text-xs text-red-500 border border-red-200 rounded px-3 py-1 hover:bg-red-50">スレッドを削除</button>` : ""}
-          </div>
-          <p class="text-gray-700 whitespace-pre-wrap my-4">${escapeHtml(data.thread.body)}</p>
-          <p class="text-xs text-gray-400">${escapeHtml(data.thread.display_name)} ／ ${formatDate(data.thread.created_at)}</p>
-        </div>
-      `;
+      titleEl.textContent = data.thread.title;
 
-      document.getElementById("delete-thread")?.addEventListener("click", async () => {
-        if (!confirm("このスレッドを削除しますか？返信もすべて削除されます。")) return;
+      resMap.clear();
+      resMap.set(1, {
+        num: 1,
+        name: data.thread.display_name,
+        date: data.thread.created_at,
+        body: data.thread.body,
+        email: data.thread.student_email,
+      });
+      data.replies.forEach((r, i) => {
+        resMap.set(i + 2, {
+          num: i + 2,
+          name: r.display_name,
+          date: r.created_at,
+          body: r.body,
+          email: r.student_email,
+        });
+      });
+
+      let html = "";
+      for (const entry of Array.from(resMap.values()).sort((a, b) => a.num - b.num)) {
+        const isOwner = entry.email === myEmail;
+        const deleteBtn =
+          entry.num === 1
+            ? isOwner
+              ? `<button class="delete-thread text-red-500 hover:underline ml-2" data-id="${threadId}">[スレッド削除]</button>`
+              : ""
+            : isOwner
+              ? `<button class="delete-reply text-red-500 hover:underline ml-2" data-id="${data.replies[entry.num - 2].id}">[削除]</button>`
+              : "";
+        html += renderRes(entry, deleteBtn);
+      }
+      postsEl.innerHTML = html;
+
+      postsEl.querySelector(".delete-thread")?.addEventListener("click", async () => {
+        if (!confirm("このスレッドを削除しますか？レスもすべて削除されます。")) return;
         try {
-          const res = await fetch(`/api/students/board/thread?id=${encodeURIComponent(threadId)}`, {
+          const r = await fetch(`/api/students/board/thread?id=${encodeURIComponent(threadId)}`, {
             method: "DELETE",
           });
-          if (!res.ok) throw new Error("delete_failed");
+          if (!r.ok) throw new Error("delete_failed");
           location.href = "/students/board/";
         } catch {
           alert("削除に失敗しました。");
         }
       });
 
-      renderReplies(data.replies);
+      postsEl.querySelectorAll<HTMLButtonElement>(".delete-reply").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("このレスを削除しますか？")) return;
+          btn.disabled = true;
+          try {
+            const r = await fetch(`/api/students/board/replies?id=${btn.dataset.id}`, {
+              method: "DELETE",
+            });
+            if (!r.ok) throw new Error("delete_failed");
+            await loadThread();
+          } catch {
+            btn.disabled = false;
+            alert("削除に失敗しました。");
+          }
+        });
+      });
+
+      attachRefHoverPreview();
     } catch {
-      threadEl.innerHTML = '<p class="text-sm text-red-500">スレッドが見つかりませんでした。</p>';
-      repliesEl.innerHTML = "";
+      postsEl.innerHTML = '<p class="text-xs text-red-500 py-3">スレッドが見つかりませんでした。</p>';
     }
   }
 
-  function renderReplies(replies: Reply[]) {
-    const el = document.getElementById("replies-area")!;
-    if (replies.length === 0) {
-      el.innerHTML = '<p class="text-sm text-gray-400">まだ返信はありません。</p>';
-      return;
-    }
-    el.innerHTML = replies
-      .map((r) => {
-        const isOwner = r.student_email === myEmail;
-        return `
-          <div class="bg-white rounded-xl shadow-md p-5 mb-3">
-            <div class="flex justify-between items-start gap-2">
-              <p class="text-gray-700 whitespace-pre-wrap flex-1">${escapeHtml(r.body)}</p>
-              ${isOwner ? `<button class="delete-reply text-xs text-red-500 border border-red-200 rounded px-2 py-1 hover:bg-red-50 flex-shrink-0" data-id="${r.id}">削除</button>` : ""}
-            </div>
-            <p class="text-xs text-gray-400 mt-2">${escapeHtml(r.display_name)} ／ ${formatDate(r.created_at)}</p>
-          </div>
+  function attachRefHoverPreview() {
+    const tooltip = document.getElementById("ref-tooltip")!;
+    document.querySelectorAll<HTMLAnchorElement>(".anchor-ref").forEach((a) => {
+      a.addEventListener("mouseenter", (e) => {
+        const num = Number(a.dataset.ref);
+        const entry = resMap.get(num);
+        if (!entry) return;
+        tooltip.innerHTML = `
+          <div class="text-primary font-bold mb-1">${entry.num}：${escapeHtml(entry.name)}</div>
+          <div class="whitespace-pre-wrap">${escapeHtml(entry.body)}</div>
         `;
-      })
-      .join("");
-
-    el.querySelectorAll<HTMLButtonElement>(".delete-reply").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        if (!confirm("この返信を削除しますか？")) return;
-        btn.disabled = true;
-        try {
-          const res = await fetch(`/api/students/board/replies?id=${btn.dataset.id}`, {
-            method: "DELETE",
-          });
-          if (!res.ok) throw new Error("delete_failed");
-          await loadThread();
-        } catch {
-          btn.disabled = false;
-          alert("削除に失敗しました。");
-        }
+        tooltip.classList.remove("hidden");
+        positionTooltip(e as MouseEvent);
       });
+      a.addEventListener("mousemove", (e) => positionTooltip(e as MouseEvent));
+      a.addEventListener("mouseleave", () => tooltip.classList.add("hidden"));
     });
+  }
+
+  function positionTooltip(e: MouseEvent) {
+    const tooltip = document.getElementById("ref-tooltip")!;
+    const pad = 12;
+    let left = e.clientX + pad;
+    let top = e.clientY + pad;
+    const rect = tooltip.getBoundingClientRect();
+    if (left + rect.width > window.innerWidth) left = window.innerWidth - rect.width - pad;
+    if (top + rect.height > window.innerHeight) top = window.innerHeight - rect.height - pad;
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
   }
 
   const replyForm = document.getElementById("reply-form") as HTMLFormElement;
@@ -173,6 +238,7 @@ import StudentLayout from "../../../layouts/StudentLayout.astro";
     replyError.hidden = true;
 
     const body = (document.getElementById("reply-body") as HTMLTextAreaElement).value.trim();
+    const handle = (document.getElementById("reply-handle") as HTMLInputElement).value.trim();
     if (!body || !threadId) return;
 
     replySubmit.disabled = true;
@@ -180,13 +246,13 @@ import StudentLayout from "../../../layouts/StudentLayout.astro";
       const res = await fetch("/api/students/board/replies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ thread_id: Number(threadId), body }),
+        body: JSON.stringify({ thread_id: Number(threadId), body, handle_name: handle }),
       });
       if (!res.ok) throw new Error("reply_failed");
-      replyForm.reset();
+      (document.getElementById("reply-body") as HTMLTextAreaElement).value = "";
       await loadThread();
     } catch {
-      replyError.textContent = "返信に失敗しました。もう一度お試しください。";
+      replyError.textContent = "レスに失敗しました。もう一度お試しください。";
       replyError.hidden = false;
     } finally {
       replySubmit.disabled = false;
