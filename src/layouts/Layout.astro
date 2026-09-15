@@ -1,16 +1,40 @@
 ---
 import "../styles/global.css";
-interface Props { title?: string; description?: string; image?: string; }
+// schema: そのページ固有の構造化データ（Course/Person/Article等）を1件、または複数件は配列で渡す。
+// 渡さないページではサイト全体の CollegeOrUniversity のみが出力される。
+interface Props { title?: string; description?: string; image?: string; schema?: Record<string, unknown> | Record<string, unknown>[]; }
 const {
   title = "城北情報大学",
   description = "城北情報大学公式サイト",
   image = "/images/ogp-default.jpg",
+  schema,
 } = Astro.props;
 const path = Astro.url.pathname;
 const pageTitle = `${title} | Johoku University of Information Studies`;
 // microCMSのeyecatch画像は既に絶対URL、それ以外（デフォルト画像等）はサイトURLからの相対パスとして解決する
 const ogImageUrl = image.startsWith("http") ? image : new URL(image, Astro.site).toString();
 const canonicalUrl = new URL(path, Astro.site).toString();
+
+// サイト全体で共通のCollegeOrUniversity。answer engineが「城北情報大学とは何か」を
+// 単独で判断できるよう、どのページにも必ず埋め込む。
+const universitySchema = {
+  "@context": "https://schema.org",
+  "@type": "CollegeOrUniversity",
+  "name": "城北情報大学",
+  "alternateName": "Johoku University of Information Studies",
+  "url": Astro.site?.toString(),
+  "logo": new URL("/header-logo.png", Astro.site).toString(),
+  "address": {
+    "@type": "PostalAddress",
+    "postalCode": "170-0000",
+    "addressRegion": "東京都",
+    "addressLocality": "豊島区",
+    "streetAddress": "城北台1-2-3",
+    "addressCountry": "JP",
+  },
+};
+const pageSchemas = schema ? (Array.isArray(schema) ? schema : [schema]) : [];
+const allSchemas = [universitySchema, ...pageSchemas];
 const nav = [
   { href: "/", label: "ホーム" },
   { href: "/academics/", label: "学部・大学院" },
@@ -53,6 +77,11 @@ const nav = [
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;600;900&display=swap" rel="stylesheet" />
+
+  <!-- 構造化データ（AEO/SEO）：サイト全体のCollegeOrUniversity + ページ固有のschema -->
+  {allSchemas.map((s) => (
+    <script type="application/ld+json" set:html={JSON.stringify(s)} />
+  ))}
 </head>
 <body class="font-sans text-gray-800 bg-light antialiased flex flex-col min-h-screen">
 <header class="fixed w-full z-50 bg-white/95 backdrop-blur shadow-sm border-b border-gray-200">
