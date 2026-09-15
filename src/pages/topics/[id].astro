@@ -26,9 +26,19 @@ function formatDate(dateStr) {
     .toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" })
     .replace(/\//g, ".");
 }
+
+const topicSchema = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": item.title,
+  "datePublished": item.publishedAt,
+  "dateModified": item.updatedAt ?? item.publishedAt,
+  "image": item.eyecatch?.url,
+  "publisher": { "@type": "CollegeOrUniversity", "name": "城北情報大学" },
+};
 ---
 
-<Layout title={item.title} description={item.title}>
+<Layout title={item.title} description={item.title} schema={topicSchema}>
 <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
 {item.eyecatch && (
 <img src={item.eyecatch.url} alt={item.title} class="w-full h-auto rounded-lg mb-10 object-cover" />
