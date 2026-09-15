@@ -26,9 +26,18 @@ function formatDate(dateStr) {
     .toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" })
     .replace(/\//g, ".");
 }
+
+const newsSchema = {
+  "@context": "https://schema.org",
+  "@type": "NewsArticle",
+  "headline": item.title,
+  "datePublished": item.publishedAt,
+  "dateModified": item.updatedAt ?? item.publishedAt,
+  "publisher": { "@type": "CollegeOrUniversity", "name": "城北情報大学" },
+};
 ---
 
-<Layout title={item.title} description={item.title}>
+<Layout title={item.title} description={item.title} schema={newsSchema}>
 <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
 <time class="text-sm text-gray-500 font-medium">{formatDate(item.publishedAt)}</time>
 <h1 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mt-4 mb-10 leading-tight">{item.title}</h1>
