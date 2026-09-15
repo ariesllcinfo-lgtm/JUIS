@@ -1,0 +1,35 @@
+# 城北情報大学 (Johoku University of Information Studies)
+# 検索エンジン・AIクローラーの双方に対して、公開コンテンツは原則すべて許可する。
+# 管理画面・在学生専用の機能ページのみ対象外とする（実際のアクセス制御はCloudflare Access側で行う）。
+
+User-agent: *
+Disallow: /admin/
+Disallow: /students/account
+Disallow: /students/register
+Disallow: /students/board
+Disallow: /students/creator
+Disallow: /admissions/survey
+
+# 主要なAIクローラー・アンサーエンジンを明示的に許可
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+Sitemap: https://juis-ac.jp/sitemap-index.xml
