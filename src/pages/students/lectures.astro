@@ -6,11 +6,11 @@ import { lectures } from "../../data/lectures";
 
 <StudentLayout title="講義動画" description="城北情報大学の講義動画一覧です。">
   <h1 class="text-3xl font-serif font-bold text-primary mb-2">講義動画</h1>
-  <p class="text-gray-600 mb-10">視聴したい講義を選んでください。</p>
+  <p class="text-gray-600 mb-10">視聴したい講義を選んでください。コメントは動画の上に流れます。</p>
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
     {
-      lectures.map((lecture) => (
+      lectures.map((lecture, i) => (
         <div
           class="bg-white rounded-xl shadow-md overflow-hidden border-t-4"
           style={`border-color:${lecture.color}`}
@@ -19,15 +19,34 @@ import { lectures } from "../../data/lectures";
             <p class="text-xs text-gray-400 mb-1">{lecture.faculty}</p>
             <h2 class="text-lg font-bold text-gray-900 mb-4">{lecture.title}</h2>
             {lecture.youtubeId ? (
-              <div class="aspect-video">
-                <iframe
-                  class="w-full h-full rounded"
-                  src={`https://www.youtube-nocookie.com/embed/${lecture.youtubeId}`}
-                  title={lecture.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowfullscreen
-                />
-              </div>
+              <>
+                <div class="relative aspect-video bg-black rounded overflow-hidden">
+                  <div id={`yt-player-${i}`} class="absolute inset-0 w-full h-full" data-youtube-id={lecture.youtubeId} />
+                  <div id={`comment-layer-${i}`} class="absolute inset-0 pointer-events-none overflow-hidden" />
+                </div>
+                <form class="comment-form flex gap-2 mt-3" data-index={i}>
+                  <input
+                    type="text"
+                    class="comment-handle w-24 border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-secondary"
+                    placeholder="名無しさん"
+                    maxlength="30"
+                  />
+                  <input
+                    type="text"
+                    class="comment-body flex-1 border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-secondary"
+                    placeholder="コメントを書く（75文字まで）"
+                    maxlength="75"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    class="bg-primary hover:bg-blue-800 text-white text-xs font-bold px-3 rounded transition"
+                  >
+                    投稿
+                  </button>
+                </form>
+                <p class="comment-error text-xs text-red-600 mt-1" hidden />
+              </>
             ) : (
               <div class="aspect-video bg-gray-50 border border-dashed border-gray-200 rounded flex items-center justify-center">
                 <p class="text-sm text-gray-400">動画は準備中です</p>
@@ -39,3 +58,183 @@ import { lectures } from "../../data/lectures";
     }
   </div>
 </StudentLayout>
+
+<script>
+  // ==== ニコニコ動画風の弾幕コメント ====
+  // YouTube IFrame Player API を読み込み、各動画の再生位置に同期して
+  // コメントをオーバーレイ層に流す。コメントはvideo_time（動画内の秒数）
+  // で管理しているので、シークバーを動かしても正しい位置で再生される。
+
+  declare global {
+    interface Window {
+      YT: any;
+      onYouTubeIframeAPIReady: () => void;
+    }
+  }
+
+  interface CommentRow {
+    id: number;
+    youtube_id: string;
+    video_time: number;
+    body: string;
+    display_name: string;
+  }
+
+  const LANE_COUNT = 10;
+  const LANE_HEIGHT = 28; // px
+  const FLY_DURATION_MS = 6000;
+
+  interface PlayerState {
+    player: any;
+    youtubeId: string;
+    comments: CommentRow[];
+    lastCheckedTime: number;
+    laneCursor: number;
+    layerEl: HTMLElement;
+  }
+
+  const players: PlayerState[] = [];
+
+  function escapeHtml(s: string): string {
+    const div = document.createElement("div");
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  async function loadComments(youtubeId: string): Promise<CommentRow[]> {
+    try {
+      const res = await fetch(`/api/students/lectures/comments?youtube_id=${encodeURIComponent(youtubeId)}`);
+      if (!res.ok) return [];
+      const data: { comments: CommentRow[] } = await res.json();
+      return data.comments;
+    } catch {
+      return [];
+    }
+  }
+
+  function spawnComment(state: PlayerState, text: string) {
+    const el = document.createElement("div");
+    el.textContent = text;
+    el.className = "absolute whitespace-nowrap text-white font-bold text-sm";
+    el.style.textShadow = "1px 1px 2px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.9)";
+    el.style.top = `${(state.laneCursor % LANE_COUNT) * LANE_HEIGHT + 4}px`;
+    el.style.left = "100%";
+    state.laneCursor += 1;
+    state.layerEl.appendChild(el);
+
+    const width = state.layerEl.clientWidth || 300;
+    const distance = width + el.offsetWidth + 40;
+
+    const anim = el.animate(
+      [
+        { transform: "translateX(0)" },
+        { transform: `translateX(-${distance}px)` },
+      ],
+      { duration: FLY_DURATION_MS, easing: "linear" }
+    );
+    anim.onfinish = () => el.remove();
+  }
+
+  function tick(state: PlayerState) {
+    if (!state.player || typeof state.player.getCurrentTime !== "function") return;
+    const current = state.player.getCurrentTime();
+
+    // シークで時間が巻き戻った場合は基準を今の時間に合わせるだけ
+    // （早戻しして再生すれば、同じコメントがまた流れる＝ニコニコと同じ挙動）
+    if (current < state.lastCheckedTime) {
+      state.lastCheckedTime = current;
+      return;
+    }
+
+    for (const c of state.comments) {
+      if (c.video_time > state.lastCheckedTime && c.video_time <= current) {
+        spawnComment(state, c.body);
+      }
+    }
+    state.lastCheckedTime = current;
+  }
+
+  function createPlayer(container: HTMLElement, index: number) {
+    const youtubeId = container.dataset.youtubeId!;
+    const layerEl = document.getElementById(`comment-layer-${index}`)!;
+
+    const state: PlayerState = {
+      player: null,
+      youtubeId,
+      comments: [],
+      lastCheckedTime: 0,
+      laneCursor: 0,
+      layerEl,
+    };
+    players.push(state);
+
+    state.player = new window.YT.Player(container.id, {
+      videoId: youtubeId,
+      playerVars: { rel: 0, modestbranding: 1 },
+      events: {
+        onReady: async () => {
+          state.comments = await loadComments(youtubeId);
+          setInterval(() => tick(state), 200);
+        },
+      },
+    });
+  }
+
+  window.onYouTubeIframeAPIReady = () => {
+    document.querySelectorAll<HTMLElement>("[id^='yt-player-']").forEach((el, i) => {
+      createPlayer(el, i);
+    });
+  };
+
+  // YouTube IFrame API本体を読み込む
+  const tag = document.createElement("script");
+  tag.src = "https://www.youtube.com/iframe_api";
+  document.head.appendChild(tag);
+
+  // ==== コメント投稿フォーム ====
+  document.querySelectorAll<HTMLFormElement>(".comment-form").forEach((form) => {
+    const index = Number(form.dataset.index);
+    const handleInput = form.querySelector<HTMLInputElement>(".comment-handle")!;
+    const bodyInput = form.querySelector<HTMLInputElement>(".comment-body")!;
+    const errorEl = form.nextElementSibling as HTMLElement;
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorEl.hidden = true;
+
+      const state = players[index];
+      const text = bodyInput.value.trim();
+      if (!text || !state || !state.player) return;
+
+      const videoTime = state.player.getCurrentTime();
+
+      try {
+        const res = await fetch("/api/students/lectures/comments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            youtube_id: state.youtubeId,
+            video_time: videoTime,
+            body: text,
+            handle_name: handleInput.value.trim(),
+          }),
+        });
+        if (!res.ok) throw new Error("post_failed");
+
+        // 投稿した本人にはその場ですぐ流す
+        spawnComment(state, text);
+        state.comments.push({
+          id: Date.now(),
+          youtube_id: state.youtubeId,
+          video_time: videoTime,
+          body: text,
+          display_name: handleInput.value.trim() || "名無しさん",
+        });
+        bodyInput.value = "";
+      } catch {
+        errorEl.textContent = "コメントの投稿に失敗しました。";
+        errorEl.hidden = false;
+      }
+    });
+  });
+</script>
