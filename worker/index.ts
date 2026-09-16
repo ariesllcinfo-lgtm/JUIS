@@ -607,6 +607,83 @@ async function handleBoardReplyDelete(
   return json({ ok: true }, 200);
 }
 
+// ---- 講義動画のニコニコ風コメント（/students/lectures/） ----
+
+interface LectureCommentRow {
+  id: number;
+  youtube_id: string;
+  video_time: number;
+  body: string;
+  display_name: string;
+}
+
+async function handleLectureCommentsList(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const url = new URL(request.url);
+  const youtubeId = url.searchParams.get("youtube_id");
+  if (!youtubeId) return json({ error: "youtube_id_required" }, 400);
+
+  const comments = await env.DB.prepare(
+    `SELECT id, youtube_id, video_time, body,
+            COALESCE(NULLIF(handle_name, ''), '名無しさん') AS display_name
+     FROM lecture_comments
+     WHERE youtube_id = ?
+     ORDER BY video_time ASC
+     LIMIT 3000`
+  )
+    .bind(youtubeId)
+    .all<LectureCommentRow>();
+
+  return json({ comments: comments.results }, 200);
+}
+
+interface LectureCommentBody {
+  youtube_id?: string;
+  video_time?: number;
+  body?: string;
+  handle_name?: string;
+}
+
+async function handleLectureCommentCreate(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const email = getAccessEmail(request);
+  if (!email) return json({ error: "not_authenticated" }, 401);
+
+  let body: LectureCommentBody;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "invalid_json" }, 400);
+  }
+
+  const youtubeId = body.youtube_id?.trim();
+  const content = body.body?.trim();
+  const videoTime = typeof body.video_time === "number" ? body.video_time : null;
+  const handleName = body.handle_name?.trim() || null;
+
+  if (!youtubeId || !content || videoTime === null || videoTime < 0) {
+    return json({ error: "youtube_id_video_time_and_body_required" }, 400);
+  }
+  // ニコニコ風の弾幕コメントは短文が前提。極端に長い投稿は弾く。
+  if (content.length > 75) {
+    return json({ error: "comment_too_long" }, 400);
+  }
+
+  const result = await env.DB.prepare(
+    `INSERT INTO lecture_comments (youtube_id, student_email, handle_name, video_time, body)
+     VALUES (?, ?, ?, ?, ?)
+     RETURNING id, youtube_id, video_time, body`
+  )
+    .bind(youtubeId, email, handleName, videoTime, content)
+    .first();
+
+  return json(result, 201);
+}
+
 // ---- 管理者によるメールアドレス変更（/admin/students/） ----
 
 async function handleAdminStudentSearch(
@@ -1287,6 +1364,10 @@ const routes: Record<string, Partial<Record<string, Handler>>> = {
   "/api/students/board/replies": {
     POST: handleBoardReplyCreate,
     DELETE: handleBoardReplyDelete,
+  },
+  "/api/students/lectures/comments": {
+    GET: handleLectureCommentsList,
+    POST: handleLectureCommentCreate,
   },
   "/api/students/creator/me": { GET: handleCreatorMe },
   "/api/students/creator/profile": { GET: handleCreatorProfilePeek },
