@@ -1,16 +1,9 @@
 ---
 import Layout from "../../layouts/Layout.astro";
-import { createClient } from "microcms-js-sdk";
+import { getArticles, isGeneralArticle, articleDescription, formatArticleDate } from "../../lib/articles";
 
 export async function getStaticPaths() {
-  const client = createClient({
-    serviceDomain: import.meta.env.MICROCMS_SERVICE_DOMAIN,
-    apiKey: import.meta.env.MICROCMS_API_KEY,
-  });
-  const { contents } = await client.get({
-    endpoint: "articles",
-    queries: { limit: 100 },
-  });
+  const contents = await getArticles();
   // News・Topicsは /news/ と /topics/ 側で、学長の言葉・沿革は /about/ 側で、
   // 書籍は /students/books/ 側でそれぞれ専用の表示を持つので、
   // ここでは対象から除外する（同じ内容が複数のURLで重複しないように）。
@@ -24,12 +17,16 @@ export async function getStaticPaths() {
 }
 
 const { item } = Astro.props;
+const isGeneral = isGeneralArticle(item);
+const publishedAt = item.publishedAt ?? item.createdAt;
 const isSyllabus = item.type?.includes("シラバス");
 const isRecruitment = item.type?.includes("教員募集");
 const isInstitute = item.type?.includes("附属機関");
 const isFacultyProfile = item.type?.includes("教員紹介");
 const isPublication = item.type?.includes("出版物");
-const backHref = isRecruitment
+const backHref = isGeneral
+  ? "/articles/"
+  : isRecruitment
   ? "/about/recruitment/"
   : isInstitute
     ? "/institutes/"
@@ -38,7 +35,9 @@ const backHref = isRecruitment
       : isPublication
         ? "/research/"
         : "/academics/";
-const backLabel = isRecruitment
+const backLabel = isGeneral
+  ? "← 記事一覧に戻る"
+  : isRecruitment
   ? "← 教員採用情報に戻る"
   : isInstitute
     ? "← 附属機関一覧に戻る"
@@ -51,7 +50,19 @@ const backLabel = isRecruitment
 // typeに応じて構造化データを出し分ける（該当しないtypeではundefinedのままLayoutに渡り、
 // サイト全体のCollegeOrUniversityのみが出力される）
 let articleSchema;
-if (isSyllabus) {
+if (isGeneral) {
+  articleSchema = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": item.title,
+    "description": articleDescription(item),
+    "datePublished": publishedAt,
+    "dateModified": item.updatedAt ?? publishedAt,
+    ...(item.eyecatch?.url && { "image": item.eyecatch.url }),
+    "mainEntityOfPage": new URL(`/articles/${item.id}/`, Astro.site).toString(),
+    "publisher": { "@type": "Organization", "name": "城北情報大学" },
+  };
+} else if (isSyllabus) {
   articleSchema = {
     "@context": "https://schema.org",
     "@type": "Course",
@@ -88,9 +99,22 @@ if (isSyllabus) {
 }
 ---
 
-<Layout title={item.title} description={item.title} schema={articleSchema}>
+<Layout title={item.title} description={isGeneral ? articleDescription(item) : item.title} image={item.eyecatch?.url} ogType={isGeneral ? "article" : "website"} schema={articleSchema}>
 <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+{isGeneral && (
+  <nav aria-label="パンくず" class="text-sm text-gray-500 mb-6">
+    <a href="/" class="hover:underline">ホーム</a> / <a href="/articles/" class="hover:underline">記事一覧</a> / <span aria-current="page">{item.title}</span>
+  </nav>
+)}
 <h1 class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mb-6 leading-tight">{item.title}</h1>
+
+{isGeneral && (
+  <div class="flex flex-wrap gap-4 text-sm text-gray-500 mb-8">
+    <span>公開日：<time datetime={publishedAt}>{formatArticleDate(publishedAt)}</time></span>
+    {item.updatedAt && formatArticleDate(item.updatedAt) !== formatArticleDate(publishedAt) && <span>更新日：<time datetime={item.updatedAt}>{formatArticleDate(item.updatedAt)}</time></span>}
+  </div>
+)}
+{isGeneral && item.eyecatch && <img src={item.eyecatch.url} alt={item.title} width={item.eyecatch.width} height={item.eyecatch.height} class="w-full h-auto rounded-lg mb-10" />}
 
 {isSyllabus && (
   <div class="bg-white rounded-xl shadow-md p-6 mb-10 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">

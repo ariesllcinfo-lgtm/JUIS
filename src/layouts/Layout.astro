@@ -2,11 +2,12 @@
 import "../styles/global.css";
 // schema: そのページ固有の構造化データ（Course/Person/Article等）を1件、または複数件は配列で渡す。
 // 渡さないページではサイト全体の CollegeOrUniversity のみが出力される。
-interface Props { title?: string; description?: string; image?: string; schema?: Record<string, unknown> | Record<string, unknown>[]; }
+interface Props { title?: string; description?: string; image?: string; ogType?: "website" | "article"; schema?: Record<string, unknown> | Record<string, unknown>[]; }
 const {
   title = "城北情報大学",
   description = "城北情報大学公式サイト",
-  image = "/images/ogp-default.jpg",
+  image = "/images/main.png",
+  ogType = "website",
   schema,
 } = Astro.props;
 const path = Astro.url.pathname;
@@ -34,9 +35,12 @@ const universitySchema = {
   },
 };
 const pageSchemas = schema ? (Array.isArray(schema) ? schema : [schema]) : [];
-const allSchemas = [universitySchema, ...pageSchemas];
+const allSchemas = [universitySchema, ...pageSchemas].map((s) =>
+  JSON.stringify(s).replace(/</g, "\\u003c")
+);
 const nav = [
   { href: "/", label: "ホーム" },
+  { href: "/articles/", label: "記事・コラム" },
   { href: "/academics/", label: "学部・大学院" },
   { href: "/research/", label: "教育・研究" },
   { href: "/about/", label: "大学紹介" },
@@ -60,7 +64,7 @@ const nav = [
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 
   <!-- OGP（アイキャッチ画像。ページ側でimageを指定しなければ既定の外観写真を使用） -->
-  <meta property="og:type" content="website" />
+  <meta property="og:type" content={ogType} />
   <meta property="og:site_name" content="城北情報大学" />
   <meta property="og:title" content={pageTitle} />
   <meta property="og:description" content={description} />
@@ -80,7 +84,7 @@ const nav = [
 
   <!-- 構造化データ（AEO/SEO）：サイト全体のCollegeOrUniversity + ページ固有のschema -->
   {allSchemas.map((s) => (
-    <script type="application/ld+json" set:html={JSON.stringify(s)} />
+    <script type="application/ld+json" set:html={s} />
   ))}
 </head>
 <body class="font-sans text-gray-800 bg-light antialiased flex flex-col min-h-screen">
@@ -90,15 +94,15 @@ const nav = [
       <img src="/header-logo.png" alt="城北情報大学" class="h-16 w-16 object-contain" />
       <div><h1 class="font-serif font-bold text-xl tracking-wider text-primary leading-tight">城北情報大学</h1><p class="text-[10px] text-gray-500 tracking-widest uppercase">Johoku University of Information Studies</p></div>
     </a>
-    <div class="hidden md:flex items-center gap-8">
-      <nav class="flex space-x-8 h-full items-center">
+    <div class="hidden xl:flex items-center gap-5">
+      <nav class="flex space-x-5 h-full items-center">
         {nav.map(item => <a href={item.href} class:list={["nav-link h-full px-1 flex items-center text-gray-600 hover:text-primary transition-colors text-sm font-medium", path===item.href && "active-nav"]}>{item.label}</a>)}
       </nav>
       <a href="/students/" class="inline-flex items-center text-sm font-bold text-white bg-secondary hover:bg-blue-400 px-4 py-2 rounded-full transition">在学生の方</a>
     </div>
-    <button id="mobile-menu-btn" class="md:hidden text-gray-600 hover:text-primary" aria-label="メニューを開く" aria-expanded="false"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg></button>
+    <button id="mobile-menu-btn" class="xl:hidden text-gray-600 hover:text-primary" aria-label="メニューを開く" aria-expanded="false"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg></button>
   </div></div>
-  <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-gray-100"><div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">{nav.map(item => <a href={item.href} class="block px-3 py-2 text-base font-medium text-gray-800 hover:bg-gray-50 hover:text-primary">{item.label}</a>)}<a href="/students/" class="block mt-2 px-3 py-2 text-center text-base font-bold text-white bg-secondary rounded">在学生の方</a></div></div>
+  <div id="mobile-menu" class="hidden xl:hidden bg-white border-t border-gray-100"><div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">{nav.map(item => <a href={item.href} class="block px-3 py-2 text-base font-medium text-gray-800 hover:bg-gray-50 hover:text-primary">{item.label}</a>)}<a href="/students/" class="block mt-2 px-3 py-2 text-center text-base font-bold text-white bg-secondary rounded">在学生の方</a></div></div>
 </header>
 <main class="flex-grow pt-20"><slot /></main>
 <footer class="bg-dark text-gray-400 py-12 border-t border-gray-800">
@@ -115,6 +119,7 @@ const nav = [
 </div>
 <!-- Links 1 -->
 <div class="flex flex-col space-y-2 text-sm">
+<a class="hover:text-white transition" href="/articles/">記事・コラム</a>
 <a class="hover:text-white transition" href="/academics/">学部・大学院</a>
 <a class="hover:text-white transition" href="/faculty/">教員紹介</a>
 <a class="hover:text-white transition" href="/research/">教育・研究</a>
