@@ -1,0 +1,17 @@
+---
+import { articleDescription, formatArticleDate, type Article } from "../lib/articles";
+interface Props { item: Article; }
+const { item } = Astro.props;
+const publishedAt = item.publishedAt ?? item.createdAt;
+---
+<article class="h-full">
+  <a href={`/articles/${item.id}/`} class="block h-full bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow focus-visible:outline-2 focus-visible:outline-primary">
+    {item.eyecatch && <img src={item.eyecatch.url} alt="" width={item.eyecatch.width} height={item.eyecatch.height} loading="lazy" class="w-full h-48 object-cover" />}
+    <div class="p-6">
+      <time datetime={publishedAt} class="text-sm text-gray-500">{formatArticleDate(publishedAt)}</time>
+      <h2 class="mt-3 text-xl font-bold text-gray-900 leading-relaxed">{item.title}</h2>
+      <p class="mt-3 text-sm text-gray-600 leading-relaxed">{articleDescription(item)}</p>
+      <span class="inline-block mt-4 text-sm font-medium text-primary">記事を読む →</span>
+    </div>
+  </a>
+</article>

@@ -1,19 +1,11 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { createClient } from "microcms-js-sdk";
+import { getArticles } from "../lib/articles";
 import { getArticleUrl } from "../lib/getArticleUrl";
-
-const client = createClient({
-  serviceDomain: import.meta.env.MICROCMS_SERVICE_DOMAIN,
-  apiKey: import.meta.env.MICROCMS_API_KEY,
-});
 
 let articles = [];
 try {
-  const res = await client.get({
-    endpoint: "articles",
-    queries: { limit: 100 },
-  });
+  const res = { contents: await getArticles() };
   articles = res.contents;
 } catch (error) {
   console.error("articlesの取得に失敗しました", error);

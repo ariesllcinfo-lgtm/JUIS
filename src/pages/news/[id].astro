@@ -1,16 +1,9 @@
 ---
 import Layout from "../../layouts/Layout.astro";
-import { createClient } from "microcms-js-sdk";
+import { getArticles } from "../../lib/articles";
 
 export async function getStaticPaths() {
-  const client = createClient({
-    serviceDomain: import.meta.env.MICROCMS_SERVICE_DOMAIN,
-    apiKey: import.meta.env.MICROCMS_API_KEY,
-  });
-  const { contents } = await client.get({
-    endpoint: "articles",
-    queries: { limit: 100 },
-  });
+  const contents = await getArticles();
   return contents
     .filter((item) => item.type?.includes("News"))
     .map((item) => ({

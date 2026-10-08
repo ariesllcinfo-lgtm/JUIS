@@ -1,11 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { createClient } from "microcms-js-sdk";
-
-const client = createClient({
-  serviceDomain: import.meta.env.MICROCMS_SERVICE_DOMAIN,
-  apiKey: import.meta.env.MICROCMS_API_KEY,
-});
+import { getArticles } from "../lib/articles";
 
 const pillars = [
   {
@@ -74,10 +69,7 @@ const pillars = [
 let presidentMessage = null;
 let historyItems = [];
 try {
-  const res = await client.get({
-    endpoint: "articles",
-    queries: { limit: 100 },
-  });
+  const res = { contents: await getArticles() };
   presidentMessage =
     res.contents.find((a) => a.type?.includes("学長の言葉")) ?? null;
   historyItems = res.contents

@@ -6,7 +6,7 @@
 // articlesの内容に応じてビルド時に自動生成されるため、記事を追加しても手動更新は不要。
 
 import type { APIRoute } from "astro";
-import { createClient } from "microcms-js-sdk";
+import { getArticles } from "../lib/articles";
 import { getArticleUrl } from "../lib/getArticleUrl";
 
 export const GET: APIRoute = async ({ site }) => {
@@ -14,11 +14,7 @@ export const GET: APIRoute = async ({ site }) => {
 
   let items: any[] = [];
   try {
-    const client = createClient({
-      serviceDomain: import.meta.env.MICROCMS_SERVICE_DOMAIN,
-      apiKey: import.meta.env.MICROCMS_API_KEY,
-    });
-    const res = await client.get({ endpoint: "articles", queries: { limit: 100 } });
+    const res = { contents: await getArticles() };
     items = res.contents;
   } catch (error) {
     console.error("llms.txt: articlesの取得に失敗しました", error);
@@ -38,6 +34,7 @@ export const GET: APIRoute = async ({ site }) => {
 ## 主要ページ
 
 - [ホーム](${base}/)
+- [記事・コラム](${base}/articles/)
 - [大学紹介](${base}/about/)
 - [学部・大学院](${base}/academics/)
 - [シラバス一覧](${base}/academics/syllabus/)

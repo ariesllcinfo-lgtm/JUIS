@@ -1,29 +1,15 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { createClient } from "microcms-js-sdk";
-
-// microCMSクライアントの初期化
-const client = createClient({
-  serviceDomain: import.meta.env.MICROCMS_SERVICE_DOMAIN,
-  apiKey: import.meta.env.MICROCMS_API_KEY,
-});
+import { getArticles, isGeneralArticle } from "../lib/articles";
+import ArticleCard from "../components/ArticleCard.astro";
 
 // ヒーロー画像は固定URL
 const heroImageUrl = "https://images.microcms-assets.io/assets/1fc36b6913d840d3b8cb34a369d9e9b0/a741d169a5e3469693ba43b2001a55ac/main.png";
 
-// articlesから全件取得し、type別に絞り込んで最新3件ずつ使う
-let newsItems = [];
-let topicsItems = [];
-try {
-  const res = await client.get({
-    endpoint: "articles",
-    queries: { limit: 100 },
-  });
-  newsItems = res.contents.filter((a) => a.type?.includes("News")).slice(0, 3);
-  topicsItems = res.contents.filter((a) => a.type?.includes("Topics")).slice(0, 3);
-} catch (error) {
-  console.error("articlesの取得に失敗しました", error);
-}
+const articles = await getArticles();
+const newsItems = articles.filter((a) => a.type?.includes("News")).slice(0, 3);
+const topicsItems = articles.filter((a) => a.type?.includes("Topics")).slice(0, 3);
+const generalItems = articles.filter(isGeneralArticle).slice(0, 3);
 
 function formatDate(dateStr) {
   return new Date(dateStr)
@@ -98,5 +84,16 @@ function formatDate(dateStr) {
 </div>
 </div>
 
+<!-- General Articles -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+  <div class="flex justify-between items-end mb-10 border-b pb-4 gap-4">
+    <h3 class="text-3xl font-serif font-bold text-primary">記事・コラム</h3>
+    <a href="/articles/" class="text-sm font-medium text-secondary hover:underline">一覧を見る →</a>
+  </div>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+    {generalItems.map((item) => <ArticleCard item={item} />)}
+    {generalItems.length === 0 && <p class="text-gray-500 col-span-full">現在、公開されている記事はありません。</p>}
+  </div>
+</div>
 </section>
 </Layout>
