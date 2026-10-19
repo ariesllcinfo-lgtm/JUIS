@@ -1,0 +1,34 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+<Layout title="電子図書館・閲覧">
+  <section style="max-width:1200px;margin:auto;padding:24px">
+    <a href="/students/library/" class="text-primary underline">← 貸出一覧へ</a>
+    <h1 class="text-2xl font-bold my-4">電子書籍を読む</h1>
+    <p id="reader-status" role="status" aria-live="polite" class="mb-4">貸出を確認しています…</p>
+    <div id="reader"></div>
+    <p class="text-sm text-gray-500 mt-4">PDFを表示できない端末では、別のブラウザでお試しください。</p>
+  </section>
+</Layout>
+<script>
+  const params=new URLSearchParams(location.search),id=params.get('id'),loan=params.get('loan');
+  const status=document.getElementById('reader-status')!,root=document.getElementById('reader')!;
+  let expires=0;let timer:ReturnType<typeof setTimeout>|undefined;let checking=false;
+  const base=`/api/students/library/${encodeURIComponent(id || '')}`;
+  function close(text:string){root.replaceChildren();status.textContent=text;clearTimeout(timer);expires=0;}
+  async function check(){
+    if(checking)return;checking=true;
+    try{
+      if(!id||!loan)throw new Error();
+      const r=await fetch(`${base}/status?loan=${encodeURIComponent(loan)}`,{cache:'no-store',redirect:'error'});
+      if(!r.ok){close('貸出期限が終了したか、返却済みです。貸出一覧をご確認ください。');return;}
+      const data=await r.json();expires=Date.now()+Math.max(0,data.due_at-data.server_now)*1000;
+      clearTimeout(timer);timer=setTimeout(()=>close('貸出期限が終了しました。貸出一覧から再度お借りください。'),Math.max(0,expires-Date.now()));
+      status.textContent=`返却期限：${new Date(data.due_at*1000).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'})}（日本時間）`;
+      if(!root.firstChild){const frame=document.createElement('iframe');frame.title='貸出中のPDF';frame.src=`${base}/file?loan=${encodeURIComponent(loan)}#toolbar=0`;frame.style.cssText='width:100%;height:75vh;border:1px solid #cbd5e1;background:#fff';root.append(frame);}
+    }catch{close('閲覧権限を確認できませんでした。再読み込みするか、貸出一覧へお戻りください。');}
+    finally{checking=false;}
+  }
+  void check();setInterval(()=>{if(!document.hidden)void check();},15000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden){if(expires&&Date.now()>=expires)close('貸出期限が終了しました。');void check();}});
+</script>

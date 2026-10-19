@@ -10,6 +10,7 @@ export default defineConfig({
       // 管理画面・在学生専用の機能ページはサイトマップからも除外する
       filter: (page) =>
         !page.includes('/admin/') &&
+        !page.includes('/students/library') &&
         !page.includes('/students/account') &&
         !page.includes('/students/register') &&
         !page.includes('/students/board') &&

@@ -1,0 +1,14 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import LibraryCatalog from '../../../components/LibraryCatalog.astro';
+---
+<Layout title="電子図書館・貸出" description="電子書籍・論文の貸出と返却。">
+  <section class="library-shell">
+    <p class="library-eyebrow">JUIS DIGITAL LIBRARY / MY LIBRARY</p>
+    <h1 class="library-title">本を借りる・読む</h1>
+    <p class="library-lead">貸出可能な資料の「7日間借りる」を押すと、すぐに閲覧できます。<br />「借りている資料」で、閲覧中の本と返却期限を確認できます。</p>
+    <div class="library-rules"><span>各資料 同時に1人</span><span>7日後に閲覧権限が終了</span><span>いつでも返却可能</span></div>
+    <LibraryCatalog member />
+    <p class="library-note"><a href="/library/">図書館のご案内</a> · <a href="/students/">学生ポータル</a><br />期限後はサイトからの閲覧ができなくなります。資料の無断転載・再配布はお控えください。</p>
+  </section>
+</Layout>
