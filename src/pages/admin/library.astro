@@ -1,0 +1,55 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+<Layout title="図書館管理">
+  <section class="max-w-4xl mx-auto px-6 py-12">
+    <p class="text-sm text-gray-500 mb-3">JUIS / LIBRARY ADMINISTRATION</p>
+    <h1 class="text-3xl font-serif font-bold text-primary mb-6">図書館管理</h1>
+    <p class="mb-6 text-gray-600">ご自身の論文・書籍をPDFで登録します。登録した資料は図書館の一覧に掲載され、各資料1人に7日間貸し出されます。</p>
+    <form id="upload" class="bg-white border border-gray-200 rounded-xl p-6 grid gap-5">
+      <label>タイトル<input name="title" required maxlength="200" /></label>
+      <label>著者<input name="author" required maxlength="100" /></label>
+      <label>種類<select name="kind"><option value="paper">論文</option><option value="book">書籍</option></select></label>
+      <label>紹介文<textarea name="description" maxlength="2000" rows="4"></textarea></label>
+      <label>PDF（最大8MB）<input name="pdf" type="file" accept="application/pdf,.pdf" required /></label>
+      <button id="upload-button" type="submit" class="bg-primary text-white rounded px-5 py-3 font-bold">登録して貸出を開始する</button>
+    </form>
+    <p id="admin-message" role="status" aria-live="polite" class="my-5"></p>
+    <h2 class="text-xl font-bold mt-10 mb-4">登録済みの資料</h2>
+    <div id="admin-items" class="grid gap-4"></div>
+    <p class="text-sm text-gray-500 mt-6">「新規貸出を停止」すると公開一覧から非表示になります。すでに借りている方は期限まで閲覧できます。改訂版は新しい資料として登録してください。</p>
+    <a href="/library/" class="inline-block mt-6 text-primary underline">図書館を見る →</a>
+  </section>
+</Layout>
+<style>label{display:block;font-size:14px}input,select,textarea{display:block;width:100%;margin-top:8px;padding:10px;border:1px solid #cbd5e1;border-radius:5px}button:disabled{opacity:.5}</style>
+<script>
+  const form=document.getElementById('upload') as HTMLFormElement;
+  const message=document.getElementById('admin-message')!,items=document.getElementById('admin-items')!;
+  const button=document.getElementById('upload-button') as HTMLButtonElement;
+  const errors:Record<string,string>={file_too_large:'PDFは8MB以下にしてください。',pdf_required:'PDF形式のファイルを選択してください。',invalid_metadata:'タイトル・著者・紹介文をご確認ください。'};
+  async function load(){
+    const r=await fetch('/api/admin/library',{cache:'no-store',redirect:'error'});if(!r.ok)throw new Error('資料の一覧を取得できませんでした。');
+    const data=await r.json();items.replaceChildren();
+    if(!data.items.length){items.textContent='まだ資料は登録されていません。';return;}
+    for(const item of data.items){
+      const card=document.createElement('article');card.className='bg-white border border-gray-200 rounded-lg p-5';
+      const title=document.createElement('h3');title.className='font-bold';title.textContent=item.title;
+      const info=document.createElement('p');info.className='text-sm text-gray-500 my-3';info.textContent=`${item.author} · ${(item.byte_size/1024/1024).toFixed(2)}MB · ${item.published?'貸出受付中':'新規貸出停止中'}${item.due_at?' · 貸出中':''}`;
+      const toggle=document.createElement('button');toggle.type='button';toggle.className='text-primary underline';toggle.textContent=item.published?'新規貸出を停止':'新規貸出を再開';
+      toggle.onclick=async()=>{toggle.disabled=true;try{const r=await fetch(`/api/admin/library/${item.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({published:!item.published}),redirect:'error'});if(!r.ok)throw new Error();await load();message.textContent='貸出設定を更新しました。';}catch{message.textContent='更新に失敗しました。再読み込みして状態をご確認ください。';toggle.disabled=false;}};
+      card.append(title,info,toggle);items.append(card);
+    }
+  }
+  form.onsubmit=async(e)=>{
+    e.preventDefault();const data=new FormData(form);const file=data.get('pdf') as File;
+    if(file.size>8*1024*1024){message.textContent=errors.file_too_large;return;}
+    button.disabled=true;message.textContent='PDFを登録しています。この画面を閉じずにお待ちください。';
+    try{const q=new URLSearchParams();for(const k of ['title','author','kind','description'])q.set(k,String(data.get(k)||''));
+      const r=await fetch(`/api/admin/library?${q}`,{method:'POST',headers:{'Content-Type':'application/pdf'},body:file,redirect:'error'});
+      if(!r.ok){const d=await r.json();throw new Error(errors[d.error]||'登録できませんでした。ログイン状態をご確認ください。');}
+      form.reset();message.textContent='資料を登録しました。図書館で貸出を開始しています。';await load();
+    }catch(e){message.textContent=(e instanceof Error?e.message:'登録結果を確認できませんでした。')+' 再送信する前にページを再読み込みし、登録済み資料をご確認ください。';}
+    finally{button.disabled=false;}
+  };
+  load().catch(()=>{message.textContent='管理者としてログインしてから再読み込みしてください。';});
+</script>

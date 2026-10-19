@@ -13,13 +13,11 @@
 // ルーティングは下の `routes` テーブルにまとめています。
 // 今後エンドポイントが増えても、この表に1行足すだけで済みます。
 
+import { handleLibrary } from "./library";
+
 import { ImageResponse, loadGoogleFont } from "workers-og";
 
-export interface Env {
-  DB: D1Database;
-  CREATOR_DB: D1Database;
-  ASSETS: Fetcher;
-}
+// Env is generated from wrangler.jsonc in worker-configuration.d.ts.
 
 type Handler = (request: Request, env: Env) => Promise<Response>;
 
@@ -1393,6 +1391,8 @@ const workSharePagePattern = /^\/students\/creator\/works\/(\d+)\/?$/;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const libraryResponse = await handleLibrary(request, env);
+    if (libraryResponse) return libraryResponse;
     const url = new URL(request.url);
 
     const confirmMatch = url.pathname.match(mentorshipConfirmPattern);

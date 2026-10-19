@@ -5,7 +5,10 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*", "/students/creator/works/*"]
+    "run_worker_first": [
+      "/api/*",
+      "/students/creator/works/*"
+    ]
   },
   "d1_databases": [
     {
@@ -18,5 +21,10 @@
       "database_name": "juis-db",
       "database_id": "19a008de-60f3-47ff-90d6-c5c9fcafdec4"
     }
-  ]
+  ],
+  "vars": {
+    "LIBRARY_ACCESS_ISSUER": "https://silent-base-03f8.cloudflareaccess.com",
+    "LIBRARY_STUDENT_AUD": "df70994cfd22e7320e5524e97cb244e5ac61e62f12b5c7c436ca7dcbf04627e2",
+    "LIBRARY_ADMIN_AUD": "d908dd294b8562a0227c8161eb1e4e80d88e1e95771917c52d8acae5b8a313d0"
+  }
 }

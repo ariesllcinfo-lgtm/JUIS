@@ -1,0 +1,43 @@
+---
+interface Props { member?: boolean; }
+const { member = false } = Astro.props;
+---
+<div id="library-catalog" data-member={String(member)}>
+  <div class="library-tools">
+    <label>資料を探す<input id="library-search" type="search" placeholder="タイトル・著者・キーワード" /></label>
+    <label>資料の種類<select id="library-kind"><option value="">すべて</option><option value="paper">論文</option><option value="book">書籍</option></select></label>
+    <label>貸出状況<select id="library-status"><option value="">すべて</option><option value="available">貸出可能</option>{member && <option value="mine">借りている資料</option>}</select></label>
+  </div>
+  <p id="library-message" role="status" aria-live="polite">資料を読み込んでいます…</p>
+  <div id="library-results" class="library-grid"></div>
+  <button id="library-retry" type="button" hidden>再読み込み</button>
+</div>
+<script>
+  import { initCatalog } from '../scripts/library';
+  initCatalog();
+</script>
+<style is:global>
+  .library-shell {max-width:1100px;margin:auto;padding:52px 24px 72px}
+  .library-eyebrow {font-size:12px;letter-spacing:.2em;color:#64748b;margin-bottom:14px}
+  .library-title {font-family:var(--font-serif);font-size:clamp(30px,5vw,46px);font-weight:700;color:#1e3a8a;margin-bottom:20px}
+  .library-lead {line-height:1.9;color:#475569;max-width:700px}
+  .library-rules {display:flex;flex-wrap:wrap;gap:12px;margin:28px 0 36px}
+  .library-rules span {padding:9px 16px;border:1px solid #dbe3ef;border-radius:30px;font-size:13px;background:#fff}
+  .library-tools {display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;padding:22px;background:white;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:20px}
+  .library-tools label {font-size:13px;color:#475569;font-weight:500}
+  .library-tools input,.library-tools select {display:block;width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:11px;margin-top:8px;background:white;color:#0f172a}
+  .library-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;margin:22px 0}
+  .library-card {background:white;border:1px solid #e2e8f0;border-top:4px solid #1e3a8a;border-radius:10px;padding:26px;display:flex;flex-direction:column;align-items:flex-start;overflow-wrap:anywhere}
+  .library-card h2 {font-family:var(--font-serif);font-size:22px;font-weight:700;line-height:1.6;margin:12px 0;color:#0f172a}
+  .library-card .description {line-height:1.8;font-size:14px;color:#475569;margin:16px 0;white-space:pre-wrap}
+  .library-card .badge {font-size:12px;background:#eff6ff;color:#1e3a8a;padding:4px 10px;border-radius:4px}
+  .library-card .availability {margin-top:auto;padding-top:20px;font-size:14px;font-weight:700;color:#166534}
+  .library-card .availability.busy {color:#92400e}
+  .library-actions {display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .library-button,.library-actions button,.library-actions a,#library-retry {display:inline-block;padding:10px 18px;border-radius:6px;background:#1e3a8a;color:#fff;font-size:14px;font-weight:700;cursor:pointer}
+  .library-actions button.secondary {background:#f1f5f9;color:#334155}
+  .library-actions button:disabled {opacity:.5;cursor:wait}
+  .library-note {font-size:13px;color:#64748b;line-height:1.9;margin-top:28px}
+  .library-empty {grid-column:1/-1;padding:48px 24px;text-align:center;background:white;border:1px dashed #cbd5e1;border-radius:12px;color:#64748b}
+  @media(max-width:640px){.library-tools,.library-grid{grid-template-columns:1fr}.library-shell{padding:32px 18px 48px}}
+</style>

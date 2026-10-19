@@ -1,0 +1,14 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import LibraryCatalog from '../../components/LibraryCatalog.astro';
+---
+<Layout title="電子図書館" description="城北情報大学の電子図書館。論文・書籍を1人につき各資料7日間、オンラインで閲覧できます。">
+  <section class="library-shell">
+    <p class="library-eyebrow">JUIS DIGITAL LIBRARY</p>
+    <h1 class="library-title">電子図書館</h1>
+    <p class="library-lead">論文をひらく。本と出会う。<br />著者の研究と知を、手元の画面から。貸出可能な資料は、7日間じっくりお読みいただけます。</p>
+    <div class="library-rules"><span>貸出期間 7日間</span><span>各資料 同時に1人</span><span>期限が来たら自動返却</span></div>
+    <LibraryCatalog />
+    <p class="library-note">貸出・閲覧には利用許可済みのアカウントでのログインが必要です。期限前の返却も可能です。<br />貸出期間は手続き完了から168時間です。貸出中の資料は返却または期限切れ後に借りられます。</p>
+  </section>
+</Layout>
